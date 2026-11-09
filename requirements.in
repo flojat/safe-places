@@ -1,0 +1,8 @@
+# Direkte Laufzeitabhaengigkeiten (Auftrag V0.5, Abschnitt 1).
+# Lockdatei: requirements.txt (pip-compile --generate-hashes), nie im Installer neu aufloesen.
+Django>=5.2.19,<5.3
+mysqlclient>=2.2,<2.4
+Pillow>=11,<14
+django-otp>=1.7,<1.8
+django-two-factor-auth>=1.18,<1.19
+django-axes>=8,<10

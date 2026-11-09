@@ -1,0 +1,33 @@
+# Vertraulicher Auftrag mit realen Konto-Adressen und privaten DB-Zugangsdaten
+/Auftrag/
+*:Zone.Identifier
+
+# Private Konfiguration und Geheimnisse
+.env
+.env.*
+!.env.example
+*.local.json
+!*.example.json
+initial_accounts*.json
+!initial_accounts.example.json
+hosting.local.json
+
+# Laufzeitdaten: Medien, Testmails, Tile-Cache, Logs, Backups
+/var/
+/staticfiles/
+*.log
+*.sql
+*.sql.gz
+*.dump
+
+# Python / Werkzeuge
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+/wheelhouse/
+/test-results/
+/playwright-report/
+/.playwright-browsers/
