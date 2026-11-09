@@ -1,0 +1,2 @@
+# Gepruefte Drittanbieter-Assets byte-genau speichern (Hashes in vendor-manifest.json).
+static/vendor/** -text
