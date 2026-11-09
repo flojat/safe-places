@@ -44,6 +44,23 @@ class EnvFileTests(SimpleTestCase):
             env.require("A")
 
 
+class EnvFileDiscoveryTests(SimpleTestCase):
+    def test_release_layout_uses_shared_config(self):
+        import os
+        from unittest import mock
+
+        from config.envfile import default_env_file
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ADRESSKARTE_ENV_FILE", None)
+            release = Path(d) / "releases" / "abc"
+            release.mkdir(parents=True)
+            self.assertEqual(default_env_file(release), Path(d).resolve() / "shared" / "config" / ".env")
+            self.assertEqual(default_env_file(Path(d)), Path(d).resolve() / ".env")
+            os.environ["ADRESSKARTE_ENV_FILE"] = "/explizit/.env"
+            self.assertEqual(default_env_file(release), Path("/explizit/.env"))
+
+
 class DatabaseEnvironmentTests(TestCase):
     def test_runs_on_mariadb_not_sqlite(self):
         self.assertEqual(connection.vendor, "mysql")

@@ -175,6 +175,12 @@ class DeployTests(SimpleTestCase):
 
     def _fake_prepare(self, release, args, report, env_file):
         (release / ".migrations-pending").write_text("0")
+        old = os.umask(0o077)  # wie auf dem Server nach "umask 077"
+        try:
+            (release / "staticfiles" / "css").mkdir(parents=True)
+            (release / "staticfiles" / "css" / "site.css").write_text("body{}")
+        finally:
+            os.umask(old)
 
     def _hosting(self, reload=True):
         cfg = {"wsgi_profile": "mod_wsgi", "operator_confirmed": True}
@@ -199,6 +205,17 @@ class DeployTests(SimpleTestCase):
         self.assertTrue((self.home / "current").is_symlink())
         self.assertTrue((self.home / "current" / "README").is_file())
         self.assertNotIn(str(self.home), json.dumps(report.shareable()))
+
+    def test_permissions_independent_of_umask(self):
+        self._hosting()
+        self._deploy()
+        self._deploy("--apply")
+        release = Path(os.readlink(self.home / "current"))
+        mode = lambda p: oct(p.stat().st_mode & 0o777)
+        self.assertEqual(mode(self.home / "releases"), "0o710")
+        self.assertEqual(mode(release), "0o710")
+        self.assertEqual(mode(release / "staticfiles" / "css"), "0o750")
+        self.assertEqual(mode(release / "staticfiles" / "css" / "site.css"), "0o640")
 
     def test_without_reload_prepared_not_activated(self):
         self._hosting(reload=False)

@@ -70,7 +70,7 @@ def _filtered_queryset(request, with_photos: bool = False):
     return qs
 
 
-@require_GET
+@require_safe
 def home(request):
     request_limits.ensure_guest_session(request)
     response = render(request, "locations/home.html", {
@@ -132,7 +132,7 @@ def api_list(request):
 
 # --- Vorschau / Mitgliedsdetails ---------------------------------------------
 
-@require_GET
+@require_safe
 def preview(request, public_id: str):
     """Huellseite fuer direkte Links. Unveroeffentlicht/nicht vorhanden: einheitlich 404.
 

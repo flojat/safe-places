@@ -18,6 +18,12 @@ PassengerRestartDir <WEBROOT>/private/adresskarte/shared/tmp
 PassengerFriendlyErrorPages off
 PassengerMinInstances 1
 
+# App-Verzeichnis gesperrt; Symlink "current" nur bei gleichem Besitzer folgen.
+<Directory <WEBROOT>/private/adresskarte>
+    Options +SymLinksIfOwnerMatch
+    Require all denied
+</Directory>
+
 # Gepruefte statische Dateien direkt durch Apache (nicht durch die App).
 Alias /static/ <WEBROOT>/private/adresskarte/current/staticfiles/
 <Location /static/>
@@ -27,6 +33,8 @@ Alias /static/ <WEBROOT>/private/adresskarte/current/staticfiles/
     Require all granted
     Options -Indexes -FollowSymLinks
 </Directory>
+
+# Rechte (setzt deploy selbst): adresskarte/releases/<id> 710, staticfiles 750/640, shared 700.
 
 # Uploads: 10 MiB Bild + Formular
 LimitRequestBody 11534336

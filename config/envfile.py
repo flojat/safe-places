@@ -23,6 +23,22 @@ class EnvFileError(ValueError):
     pass
 
 
+def default_env_file(base_dir: Path) -> Path:
+    """Pfad zur privaten Konfiguration.
+
+    Vorrang hat ADRESSKARTE_ENV_FILE. Im Release-Layout <app-home>/releases/<id>/
+    wird <app-home>/shared/config/.env verwendet (Web, manage.py, Cron), sonst
+    <projekt>/.env (lokale Entwicklung).
+    """
+    explicit = os.environ.get("ADRESSKARTE_ENV_FILE")
+    if explicit:
+        return Path(explicit)
+    base = Path(base_dir).resolve()
+    if base.parent.name == "releases":
+        return base.parent.parent / "shared" / "config" / ".env"
+    return base / ".env"
+
+
 def parse_env_file(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     text = path.read_text(encoding="utf-8")

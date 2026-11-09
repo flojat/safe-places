@@ -279,6 +279,11 @@ class SeededGuestApiTests(TestCase):
         self.assertContains(r, "Anmelden")
         self.assertEqual(r["Cache-Control"], "private, no-store")
 
+    def test_head_requests_supported_on_public_pages(self):
+        self.assertEqual(self.client.head("/").status_code, 200)
+        pub = PublishedLocation.objects.first()
+        self.assertEqual(self.client.head(reverse("locations:preview", args=[pub.public_id])).status_code, 200)
+
     def test_write_methods_not_allowed(self):
         self.assertEqual(self.client.post(reverse("locations:api_points")).status_code, 405)
 

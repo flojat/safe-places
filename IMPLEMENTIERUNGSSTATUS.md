@@ -78,7 +78,9 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-10 | Zielserver: `preflight --environment production` (inkl. `--network-check`) | BESTANDEN (WSGI-Laufzeit/SMTP UNKNOWN) |
 | 2026-11-10 | Zielserver: `deploy --apply` v0.5.0-rc1 brach ab: `tarfile.extractall(filter=...)` fehlt in Debian-Python 3.11.2 (erst ab 3.11.4). Kein Release angelegt, nichts aktiviert. Lehre: Kompatibilitaetstest lief mit 3.11.18 statt der exakten Zielversion | FEHLGESCHLAGEN, behoben |
 | 2026-11-10 | Behebung: eigene strikte Pruefung der Archiveintraege fuer Python ohne Extraktionsfilter; Gesamtsuite im Container mit exakt `python3.11 3.11.2-6+deb12u9` (Fallback aktiv): 233 Tests, 5 Browsertests uebersprungen | BESTANDEN |
-| – | Apache/Passenger-End-to-End auf Zielhosting | OFFEN (Release-Kandidat v0.5.0-rc2) |
+| 2026-11-10 | Zielserver: `deploy --apply --migrate` v0.5.0-rc2 (Export, venv, Hash-Installation inkl. mysqlclient-Build, Checks, collectstatic, Migration, Aktivierung per restart.txt); `doctor` production: WARN (1 Deploy-Hinweis, Initialkonten fehlen) | BESTANDEN |
+| 2026-11-10 | Zielserver: Passenger-Direktiven in ISPConfig; echte Requests (durch Betreiber): Start 200, /static CSS 200 text/css, Login 200, HTTP->HTTPS 301; /.env, shared, private, var, media, releases, repository/.git, /static/../ jeweils 404 | BESTANDEN |
+| 2026-11-10 | Befunde: HEAD auf Startseite 405 (require_GET); Release-/staticfiles-Rechte folgten umask 077 (manuell auf 710/750/640 gesetzt); manage.py auf dem Server braucht ADRESSKARTE_ENV_FILE | behoben in v0.5.0-rc3 (236 Tests lokal und mit Debian-Python 3.11.2) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
 ## Entscheidungen

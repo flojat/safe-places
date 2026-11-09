@@ -10,12 +10,12 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-from config.envfile import Env
+from config.envfile import Env, default_env_file
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Pfad zur privaten Konfiguration; auf dem Hosting ausserhalb des Releases (shared/config/.env).
-ENV_FILE = Path(os.environ.get("ADRESSKARTE_ENV_FILE", BASE_DIR / ".env"))
+ENV_FILE = default_env_file(BASE_DIR)
 ENV = Env(ENV_FILE)
 
 ENVIRONMENT = ENV.get("ENVIRONMENT", "local")

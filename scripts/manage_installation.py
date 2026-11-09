@@ -567,6 +567,21 @@ def export_release(repository: Path, commit: str, target: Path) -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def normalize_release_permissions(releases_dir: Path, release: Path) -> None:
+    """Rechte unabhaengig von der umask: Gruppe (Webserver) darf nur durchgehen;
+    statische Dateien lesbar; nichts world-lesbar. shared/ bleibt unberuehrt."""
+    os.chmod(releases_dir, 0o710)
+    os.chmod(release, 0o710)
+    static = release / "staticfiles"
+    if static.is_dir():
+        for root, dirs, files in os.walk(static):
+            os.chmod(root, 0o750)
+            for name in files:
+                path = Path(root) / name
+                if not path.is_symlink():
+                    os.chmod(path, 0o640)
+
+
 def migration_names(release: Path) -> set[str]:
     return {f"{p.parent.parent.name}.{p.stem}" for p in release.glob("*/migrations/[0-9]*.py")}
 
@@ -648,6 +663,7 @@ def mode_deploy(args, report: Report) -> None:
             report.add("EXPORT", "PASS", "Release aus Git exportiert (ohne Hooks/Submodule)")
             env_file = layout["config"] / ".env"
             prepare_release_environment(release, args, report, env_file)
+            normalize_release_permissions(layout["releases"], release)
             report.add("PREPARE", "PASS", "Pakete, Assets, Checks und statische Dateien im neuen Release bereit")
             if (release / ".migrations-pending").read_text() == "1":
                 if not args.migrate:
