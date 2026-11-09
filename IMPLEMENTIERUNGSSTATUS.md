@@ -81,7 +81,12 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-10 | Zielserver: `deploy --apply --migrate` v0.5.0-rc2 (Export, venv, Hash-Installation inkl. mysqlclient-Build, Checks, collectstatic, Migration, Aktivierung per restart.txt); `doctor` production: WARN (1 Deploy-Hinweis, Initialkonten fehlen) | BESTANDEN |
 | 2026-11-10 | Zielserver: Passenger-Direktiven in ISPConfig; echte Requests (durch Betreiber): Start 200, /static CSS 200 text/css, Login 200, HTTP->HTTPS 301; /.env, shared, private, var, media, releases, repository/.git, /static/../ jeweils 404 | BESTANDEN |
 | 2026-11-10 | Befunde: HEAD auf Startseite 405 (require_GET); Release-/staticfiles-Rechte folgten umask 077 (manuell auf 710/750/640 gesetzt); manage.py auf dem Server braucht ADRESSKARTE_ENV_FILE | behoben in v0.5.0-rc3 (236 Tests lokal und mit Debian-Python 3.11.2) |
-| – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
+| 2026-11-10 | rc3 (HEAD, .env-Erkennung im Release, Rechte unabhaengig von umask): 236 Tests lokal und mit Debian-Python 3.11.2; auf Zielserver deployt: HEAD 200, CSS 200, Release 710, doctor ohne Umgebungsvariable, check --deploy nur W004 (HSTS) | BESTANDEN |
+| 2026-11-10 | Zielserver: SMTP-Testversand scheitert mit `DH_KEY_TOO_SMALL` (externer MX im selben Netz, schwache DH-Parameter); Betreiberentscheid: Client anpassen | FEHLGESCHLAGEN |
+| 2026-11-10 | rc4: SMTP-Backend mit Profilen (`no_dhe` ohne Absenkung, `legacy_dh` als dokumentierte Abschwaechung; Zertifikats-/Hostnamenpruefung immer aktiv), private Ordner unabhaengig von umask, genauere Manifestmeldungen; 243 Tests lokal und mit Debian-Python 3.11.2/OpenSSL 3.0.22 | BESTANDEN |
+| 2026-11-10 | Zielserver: Initialkonten-Plan (4x create) | BESTANDEN |
+| 2026-11-10 | Zielserver rc4: `no_dhe` scheitert (MX ohne ECDHE); openssl bestaetigt TLS 1.2 nur mit DHE. Betreiberentscheid `EMAIL_TLS_PROFILE=legacy_dh`; echter Testversand an Betreiber-Testadresse zugestellt (Zertifikats-/Hostnamenpruefung aktiv) | BESTANDEN mit dokumentierter Abschwaechung |
+| – | MX auf >= 2048-Bit-DH oder ECDHE aktualisieren lassen, danach `EMAIL_TLS_PROFILE=default` | OFFEN (externer MX-Betreiber) |
 
 ## Entscheidungen
 
@@ -159,6 +164,20 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
   Testkonto hat zusaetzlich nur Rechte auf `<testdb>_%` fuer parallele Klone.
 - Lokale Mail: Datei-Backend in `var/private_mail`; kein Console-Backend.
 
+
+## Stand Inbetriebnahme Zielserver (2026-11-10, Feierabend)
+
+Laeuft produktiv ueber Passenger, aktives Release **v0.5.0-rc4**; HTTPS, statische Dateien und Sperren der
+privaten Pfade geprueft; SMTP-Testversand zugestellt (`EMAIL_TLS_PROFILE=legacy_dh`, siehe oben).
+
+Naechste Schritte (Befehle in der Sitzung vorbereitet, Ausfuehrung durch den Betreiber):
+1. Falls noch nicht erfolgt: `provision_initial_accounts ... --apply` (Plan zeigte 4x create).
+2. `hosting.local.json`: `"smtp_verified": true`.
+3. `send_initial_invitations --plan`, dann zuerst nur `--role admin --apply --confirm-send`; Admin aktiviert,
+   richtet Authenticator-App ein, prueft "Verwaltung"; danach die uebrigen drei einladen.
+4. Cronjobs in ISPConfig (cleanup_security_state stuendlich, check_tile_cache_update 6-stuendlich,
+   cleanup_tile_cache taeglich); `SECURE_HSTS_SECONDS=3600` setzen, spaeter erhoehen; abschliessend `doctor`.
+5. Offen extern: MX-Aktualisierung (DH >= 2048 / ECDHE), dann `EMAIL_TLS_PROFILE=default`.
 
 ## Abnahme lokaler Prototyp (Auftrag 14)
 
