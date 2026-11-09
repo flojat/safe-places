@@ -23,7 +23,7 @@ from . import member_access, projections, rate_limits, request_limits
 from .geo import CoordinateError, parse_bbox, tile_intersects_switzerland
 from .models import Category, Photo
 from .permissions import fully_verified_required, is_fully_verified
-from .services import images
+from .services import images, swisstopo
 
 MAX_POINTS = 500
 GUEST_PAGE_SIZE = 10
@@ -221,18 +221,30 @@ def photo(request, public_id: str, variant: str):
 def tile(request, z: int, x: int, y: int):
     """Gleichursprunglicher Kachelweg /map/tiles/{z}/{x}/{y}.jpeg.
 
-    Etappe 1-4: ausschliesslich lokal erzeugte Testkacheln, kein Providerabruf.
-    Etappe 5 ersetzt dies durch das budgetierte swisstopo-Gateway.
+    MAP_TILE_SOURCE=local_test: lokal erzeugte Testkacheln (Entwicklung/Tests).
+    MAP_TILE_SOURCE=swisstopo: budgetiertes Gateway mit Cache (services/swisstopo.py).
     """
     if not settings.MAP_MIN_ZOOM <= z <= settings.MAP_MAX_ZOOM:
         raise Http404()
     n = 2 ** z
     if not (0 <= x < n and 0 <= y < n) or not tile_intersects_switzerland(z, x, y):
         raise Http404()
-    if settings.MAP_TILE_SOURCE != "local_test":
-        raise Http404()  # swisstopo-Gateway noch nicht implementiert; kein Direkt-Fallback
-    response = HttpResponse(_render_test_tile(z, x, y), content_type="image/jpeg")
-    response["Cache-Control"] = "private, max-age=3600"
+    if settings.MAP_TILE_SOURCE == "swisstopo":
+        try:
+            data = swisstopo.get_tile(z, x, y)
+        except swisstopo.ProviderUnavailable as exc:
+            # Kein Direkt-Fallback; Liste bleibt bedienbar.
+            response = HttpResponse(status=503)
+            response["Retry-After"] = str(exc.retry_after)
+            response["Cache-Control"] = "no-store"
+            return response
+    elif settings.MAP_TILE_SOURCE == "local_test":
+        data = _render_test_tile(z, x, y)
+    else:
+        raise Http404()
+    response = HttpResponse(data, content_type="image/jpeg")
+    response["Cache-Control"] = "private, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
     return response
 
 

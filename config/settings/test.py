@@ -50,3 +50,18 @@ LOGGING = {
 import tempfile as _tempfile  # noqa: E402
 
 PRIVATE_MEDIA_ROOT = _tempfile.mkdtemp(prefix="adresskarte-test-media-")
+
+# Tile-Cache und weitere Laufzeitdaten der Tests ebenfalls temporaer (nie im Entwicklungs-var/).
+from pathlib import Path as _Path  # noqa: E402
+
+VAR_DIR = _Path(_tempfile.mkdtemp(prefix="adresskarte-test-var-"))
+
+# Keine echten swisstopo-Abrufe in automatisierten Tests (Provider wird gemockt).
+SWISSTOPO_NETWORK_ENABLED = False
+
+# Temporaere Testverzeichnisse beim Prozessende entfernen.
+import atexit as _atexit  # noqa: E402
+import shutil as _shutil  # noqa: E402
+
+_atexit.register(_shutil.rmtree, PRIVATE_MEDIA_ROOT, True)
+_atexit.register(_shutil.rmtree, str(VAR_DIR), True)

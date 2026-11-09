@@ -325,7 +325,18 @@ class TileTests(TestCase):
         self.assertEqual(self.client.post(f"/map/tiles/12/{x}/{y}.jpeg").status_code, 405)
 
     @override_settings(MAP_TILE_SOURCE="swisstopo")
-    def test_no_provider_fallback_before_gateway_exists(self):
+    def test_tests_never_reach_real_provider(self):
+        """Ohne Mock darf kein echter Abruf erfolgen (harte Netzwerksperre in Testsettings)."""
+        from unittest import mock
+
+        x, y = self._tile_for(46.95, 7.44, 12)
+        with mock.patch("urllib.request.OpenerDirector.open", side_effect=AssertionError("Netzwerkzugriff!")) as net:
+            r = self.client.get(f"/map/tiles/12/{x}/{y}.jpeg")
+        self.assertEqual(r.status_code, 503)
+        net.assert_not_called()
+
+    @override_settings(MAP_TILE_SOURCE="unbekannt")
+    def test_unknown_tile_source_is_404(self):
         x, y = self._tile_for(46.95, 7.44, 12)
         self.assertEqual(self.client.get(f"/map/tiles/12/{x}/{y}.jpeg").status_code, 404)
 

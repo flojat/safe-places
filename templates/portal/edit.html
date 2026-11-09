@@ -26,6 +26,14 @@
 
   <form method="post" novalidate class="work-form">{% csrf_token %}
     {{ form.as_div }}
+    <div class="geocode" data-geocode-url="{% url 'portal:geocode' loc.public_id %}" data-lat-field="id_exact_lat" data-lon-field="id_exact_lon">
+      <label for="geocode-q">Adresse suchen (swisstopo)</label>
+      <input type="search" id="geocode-q" maxlength="100">
+      <button type="button">Adresse suchen</button>
+      <p class="muted">Beim Klick wird nur der eingegebene Suchtext an den Suchdienst von swisstopo übermittelt. Manuelle Eingabe bleibt jederzeit möglich.</p>
+      <p class="geocode-status" aria-live="polite"></p>
+      <ol class="geocode-results"></ol>
+    </div>
     <p class="muted">Die genaue Lage ist intern. Gäste sehen nur die grobe Vorschaulage (ohne Angabe: ca. 2 km Raster). Mitglieder sehen die genaue Lage nur, wenn Sie sie ausdrücklich freigeben.</p>
     <button type="submit">Arbeitsfassung speichern</button>
   </form>
@@ -57,3 +65,4 @@
   </form>
 </section>
 {% endblock %}
+{% block scripts %}{% load static %}<script src="{% static 'js/geocode.js' %}"></script>{% endblock %}

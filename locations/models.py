@@ -421,3 +421,37 @@ class DisclosureGrant(models.Model):
             models.UniqueConstraint(fields=["user", "published", "disclosure_version"], name="grant_unique"),
         ]
         indexes = [models.Index(fields=["user", "created_at"])]
+
+
+# ---------------------------------------------------------------------------
+# Etappe 5: swisstopo-Gateway (globale Provider-Leases, Cache-Stand)
+# ---------------------------------------------------------------------------
+
+
+class ProviderSlot(models.Model):
+    """Gleichzeitige ausgehende Providerabrufe: feste Anzahl Slots mit ablaufender Lease."""
+
+    kind = models.CharField(max_length=16)
+    slot = models.PositiveSmallIntegerField()
+    holder = models.CharField(max_length=32, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["kind", "slot"], name="providerslot_unique")]
+
+
+class TileFetchLock(models.Model):
+    """Zusammenfassung paralleler Cachemisses derselben Kachel (ablaufende Lease)."""
+
+    key = models.CharField(max_length=64, unique=True)
+    holder = models.CharField(max_length=32)
+    expires_at = models.DateTimeField()
+
+
+class TileCacheState(models.Model):
+    """Ein Datensatz je Layer: Cachegeneration und zuletzt bekannter Providerstand."""
+
+    layer = models.CharField(max_length=80, unique=True)
+    generation = models.PositiveIntegerField(default=1)
+    provider_cache_update = models.CharField(max_length=40, blank=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)

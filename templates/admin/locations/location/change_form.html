@@ -3,3 +3,17 @@
   {% if original %}<li><a href="{% url 'admin:locations_location_compare' original.pk %}">Fassungsvergleich und Freigabe</a></li>{% endif %}
   {{ block.super }}
 {% endblock %}
+
+{% block after_field_sets %}
+  {{ block.super }}
+  {% load static %}
+  <fieldset class="module aligned">
+    <h2>Adresssuche (swisstopo)</h2>
+    <div class="form-row geocode" data-geocode-url="{% url 'admin_geocode' %}" data-lat-field="id_exact_lat" data-lon-field="id_exact_lon">
+      <input type="search" maxlength="100" aria-label="Adresse"> <button type="button">Adresse suchen</button>
+      <p class="help">Beim Klick wird nur der Suchtext an swisstopo übermittelt. Manuelle Eingabe bleibt möglich.</p>
+      <p class="geocode-status" aria-live="polite"></p><ol class="geocode-results"></ol>
+    </div>
+  </fieldset>
+  <script src="{% static 'js/geocode.js' %}"></script>
+{% endblock %}

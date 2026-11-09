@@ -259,3 +259,23 @@ RATE_LIMITS.update({
     "email_change_account": [(3, _D)],
 })
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+
+# Etappe 5: swisstopo (Abschnitt 5). Eigene Startwerte, keine Aussage ueber zulaessige Last.
+SWISSTOPO_LAYER = "ch.swisstopo.pixelkarte-farbe"   # einziger erlaubter Layer, 3857_19 (Zoom 0-19)
+SWISSTOPO_TILE_TIMEOUT = 5
+SWISSTOPO_TILE_MAX_BYTES = 512 * 1024
+SWISSTOPO_REST_TIMEOUT = 5
+SWISSTOPO_REST_MAX_BYTES = 256 * 1024
+SWISSTOPO_MAX_CONCURRENT = 6
+SWISSTOPO_USER_AGENT = "Adresskarte-Prototyp/0.5"
+SWISSTOPO_NETWORK_ENABLED = ENV.get_bool("SWISSTOPO_NETWORK_ENABLED", True)
+TILE_CACHE_DIR_NAME = "tile_cache"
+TILE_CACHE_MAX_AGE_SECONDS = ENV.get_int("TILE_CACHE_MAX_AGE_DAYS", 7) * 86400
+TILE_CACHE_MAX_BYTES = ENV.get_int("TILE_CACHE_MAX_MB", 500) * 1024 * 1024
+TILE_MISS_WAIT_SECONDS = 3.0
+GEOCODE_MAX_RESULTS = 5
+RATE_LIMITS.update({
+    "provider_tiles_global": [(300, _M), (20000, _D)],
+    "provider_rest_global": [(20, _M), (200, _D)],
+    "geocode_account": [(6, _M)],
+})

@@ -46,7 +46,10 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 - `locations/roles.py`: Rollengruppen; `manage.py ensure_role_groups` (ausdruecklich, ohne Kontozuweisung).
 - `locations/owner_views.py` + `forms.py`: Betreuerportal `/meine-objekte/`; `admin.py`: Redaktion/Administration.
 - `locations/reauth.py`: frische Bestaetigung (`recent_reauth_required`, 5 min).
-- Wartung: `manage.py cleanup_security_state` (per Hosting-Cron).
+- `locations/services/swisstopo.py`: Gateway/Cache/Budgets/Adresssuche; einzige Netzwerkfunktion `_open`
+  (in Tests immer mocken; `SWISSTOPO_NETWORK_ENABLED=False` in Testsettings sperrt echte Abrufe).
+- Kartenquelle: `MAP_TILE_SOURCE=local_test|swisstopo` in `.env`.
+- Wartung: `manage.py cleanup_security_state`, `check_tile_cache_update`, `cleanup_tile_cache` (per Hosting-Cron).
 - Testhilfen fuer echte Login-Ablaeufe: `locations/tests/helpers_auth.py`.
 - Tests markieren interne Werte mit `CANARY-`, Mitgliedswerte mit `MITGLIEDERDETAIL-`.
 

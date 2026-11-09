@@ -237,7 +237,7 @@
     }).setView([state.view.lat, state.view.lon], state.view.z);
     var attribution = config.tileSource === "local_test"
       ? "Lokale Testkacheln (keine Kartendaten)"
-      : '&copy; <a href="https://www.swisstopo.admin.ch/" rel="noopener">swisstopo</a>';
+      : '&copy; Data: <a href="https://www.swisstopo.admin.ch/" rel="noopener noreferrer">swisstopo</a>';
     L.tileLayer("/map/tiles/{z}/{x}/{y}.jpeg", {
       minZoom: config.minZoom,
       maxZoom: config.maxZoom,

@@ -28,7 +28,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2 | Registrierung, E-Mail-Bestaetigung, E-Mail-/TOTP-Login, Sitzungsschutz, Passwortreset, atomarer Limiter | umgesetzt; offen: Faktorwechsel/E-Mail-Aenderung mit frischer Reauth, Benachrichtigungsmails, Recovery-Code-Nutzungsprotokoll (Etappe 4/6) |
 | 3 | Freigabebuchungen/Kontingente, Mitgliedsdetails mit Kontakten, sichere Bildverarbeitung, Fotoauslieferung, Gast-/Mitglieds-Requestlimits | umgesetzt; Upload-UI folgt mit Etappe 4 (Portal) |
 | 4 | Betreuerportal, Redaktion (Fassungsvergleich/Freigabe/Zurueckweisung), Administration (Rollen/Sperren), frische Bestaetigung, E-Mail-Aenderung | umgesetzt; offen: Benachrichtigung bei Faktoraenderung/Recovery-Code-Nutzung per Mail, zusaetzlichen Faktor nachtraeglich einrichten, administrativer Recovery-Prozess (Etappe 6/7) |
-| 5 | swisstopo-Gateway, Budgets, Geokodierung | OFFEN |
+| 5 | swisstopo-Gateway mit Cache/Generationen, globale Provider-Budgets und Slots, cacheUpdate-Pruefung, Adresssuche im Arbeitsbereich | umgesetzt (gemockt getestet); echter Smoke-Test BLOCKIERT bis Freigabe; lokal weiterhin `MAP_TILE_SOURCE=local_test` |
 | 6 | Initialkonten, Aktivierung, Installations-/Deploymentroutine | OFFEN |
 | 7 | Konkurrenz-/Browsertests, Dokumentation | OFFEN |
 
@@ -57,11 +57,26 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-09 | Etappe 4: Testsuite 156 Tests (u. a. Betreuer A/B mit manipulierten IDs in URL/POST/Upload/Foto, versteckte Felder, fremder Anbieter, ungueltige Koordinaten, Versionskonflikt, Rechteentzug/Neuzuordnung sofort wirksam, Upload-Regeln, Freigabe erst nach Redaktion, veraltete Freigabe abgewiesen, Rueckmeldung sichtbar/Redaktionsnotiz nicht, Rueckzug sofort/kein Selbst-Republish, Kontaktrueckzug stoppt Mitgliedsauslieferung, Redaktion ohne Konten/Gruppen/OTP-Admin, keine Massenaktionen, Zuweisung nur an Betreuer, Rollenvergabe nur mit frischer Bestaetigung + Protokoll + Sitzungsende, Sperre, keine Hashes/TOTP-Schluessel im Admin, keine Selbstentziehung, Backup-Codes nur mit Reauth, Reauth-Ablauf, E-Mail-Aenderung mit Bestaetigung/Benachrichtigung/Replay-Schutz, paralleles Speichern vs. Freigeben), 2x | BESTANDEN |
 | 2026-11-09 | Wettlauf Speichern/Freigeben mit echten DB-Verbindungen, 8x wiederholt | BESTANDEN |
 | 2026-11-09 | Gefunden/behoben: Konten-Admin haette veraltete `security_generation` zurueckschreiben koennen (jetzt feldweise Updates); Objekt-Admin ohne Versionsvergleich (jetzt `expected_version` + Sperre) | behoben |
+| 2026-11-09 | Doku/Capabilities geprueft: Layer `ch.swisstopo.pixelkarte-farbe`, TileMatrixSet 3857_19 (Zoom 0-19), JPEG, Time `current`; cacheUpdate-Endpunkt; SearchServer `sr=4326`; Nutzungsbedingungen (Fair Use, Quellenangabe) – 1 Metadatenabruf GetCapabilities | erledigt |
+| 2026-11-09 | Etappe 5: Testsuite 181 Tests (Provider gemockt: feste URL, Query-Parameter wirkungslos, Cachetreffer ohne Budget, ungueltige Antworten nicht gecacht aber gezaehlt, Budgetende = 0 Abrufe, Limiterausfall = kein Abruf, veraltete Kachel nicht ausgeliefert, nur Grundkarten im Cache, keine Providerreferenz im Browser-JS, Weiterleitungen verweigert, Slots/Leases, Generation bei cacheUpdate-Aenderung, Cache-Bereinigung; parallel: gleicher Miss genau 1 Abruf, max. gleichzeitige Abrufe, globales Budget unter Last; Adresssuche nur Betreuer eigenes Objekt/Redaktion, feste Parameter, HTML entfernt, Koordinaten validiert, kein Logging, Konto-/REST-Budget), 2x; Concurrency 6x | BESTANDEN |
+| 2026-11-09 | VORFALL: ein ungemockter Altest aus Etappe 1 (`MAP_TILE_SOURCE=swisstopo`) loeste in 2 Gesamtlaeufen vermutlich je 1 echten Kachelabruf an wmts.geo.admin.ch aus (nicht freigegeben, max. 2 Abrufe). Behoben: harte Netzwerksperre `SWISSTOPO_NETWORK_ENABLED=False` in Testsettings, Test prueft fehlenden Netzzugriff | behoben |
+| 2026-11-09 | Echter swisstopo-Smoke-Test nach Freigabe (separat, genau 3 Abrufe ueber Anwendungscode): Kachel z12 Bern = gueltiges JPEG 33.6 KB/0.11 s; cacheUpdate = 2026-11-06T13:57:25 (erste Pruefung -> Generation 2); SearchServer "Bundesplatz 3 Bern" = 5 Treffer, erster in CH-Rechteck; Budgetzaehlung 1 Kachel/2 REST | BESTANDEN |
 | – | `check --deploy` mit Produktionssettings | OFFEN |
 | – | Apache/WSGI-End-to-End | BLOCKIERT (kein Hostingzugang, Profil unbestaetigt) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
 ## Entscheidungen
+
+- swisstopo: nur Layer `ch.swisstopo.pixelkarte-farbe` (Zoom 7-18 genutzt), feste Ziele
+  `wmts.geo.admin.ch` und `api3.geo.admin.ch`, TLS, keine Redirects/Proxies, 5 s Timeout,
+  max. 512 KiB/Kachel. Budgets global in der DB: Kacheln 300/min, 20'000/24 h; REST 20/min,
+  200/24 h; Adresssuche zusaetzlich 6/min je Konto; max. 6 gleichzeitige Abrufe (Slots mit Lease).
+- Cache: `var/tile_cache/<layer>/<generation>/z/x/y.jpg`, max. 7 Tage alt, Groesse begrenzt
+  (`cleanup_tile_cache`), Generation wechselt bei geaendertem cacheUpdate (`check_tile_cache_update`,
+  per Cron). Paralleler Miss: DB-Lease je Kachel, andere warten max. 3 s auf die Datei.
+- Bei Budgetende/Ausfall: 503 ohne Direkt-Fallback; Liste bleibt nutzbar. Keine veralteten Kacheln.
+- Offen vor Veroeffentlichung: Proxy-/Cache-Integration und Gesamtverkehr gegen aktuelle
+  swisstopo-Bedingungen pruefen, bei Unklarheit swisstopo kontaktieren (Auftrag 5).
 
 - Rollen: Gruppen `Objektbetreuung` (nur Portal, keine Admin-Rechte) und `Redaktion` (Staff +
   fachliche Modellrechte); Administration = Superuser. Gruppen nur per `ensure_role_groups` bzw.
