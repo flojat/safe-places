@@ -72,6 +72,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "locations.context_processors.navigation",
             ],
         },
     },
@@ -246,3 +247,15 @@ RATE_LIMITS.update({
 })
 DISCLOSURE_GRANT_HOURS = 24
 GUEST_SESSION_SECONDS = 2 * 3600
+
+# Etappe 4: Arbeitsportal (Abschnitt 8, Startwerte)
+RATE_LIMITS.update({
+    "portal_write_account": [(30, _M)],
+    "portal_write_ip": [(120, _M)],
+    "draft_create_account": [(20, _D)],
+    "upload_account": [(10, _H), (50, _D)],
+    "upload_ip": [(30, _H), (150, _D)],
+    "reauth_account": [(10, 900)],
+    "email_change_account": [(3, _D)],
+})
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024

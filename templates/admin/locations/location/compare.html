@@ -1,0 +1,25 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Arbeitsfassung v{{ loc.work_version }} · Status: {{ loc.get_review_state_display }}
+  {% if pub %} · Veröffentlicht: v{{ pub.source_work_version }}, disclosure {{ pub.disclosure_version }}{% if not pub.is_active %} (zurückgezogen){% endif %}{% else %} · noch nie veröffentlicht{% endif %}</p>
+{% if work_error %}<p class="errornote">Arbeitsfassung ungültig: {{ work_error }}</p>{% endif %}
+{% if missing %}<p class="errornote">Für eine Freigabe fehlt: {{ missing|join:", " }}</p>{% endif %}
+<table>
+  <thead><tr><th>Feld</th><th>Veröffentlicht</th><th>Arbeitsfassung (bei Freigabe)</th></tr></thead>
+  <tbody>{% for label, old, new, changed in rows %}
+    <tr{% if changed %} style="background:#fff4d6"{% endif %}><td>{{ label }}</td><td style="white-space:pre-line">{{ old|default:"–" }}</td><td style="white-space:pre-line">{{ new|default:"–" }}</td></tr>
+  {% endfor %}</tbody>
+</table>
+<h2>Fotos</h2>
+<p>Veröffentlicht: {% for pp in pub_photos %}<img src="{% url 'locations:photo' pp.photo.public_id 'vorschau' %}" width="90" alt=""> ({{ pp.get_visibility_display }}) {% empty %}keine{% endfor %}</p>
+<p>Bei Freigabe: {% for p in work_photos %}<img src="{% url 'locations:photo' p.public_id 'vorschau' %}" width="90" alt=""> ({{ p.get_visibility_display }}) {% empty %}keine{% endfor %}</p>
+<h2>Entscheid</h2>
+<form method="post" action="{% url 'admin:locations_location_decide' loc.pk %}">{% csrf_token %}
+  <input type="hidden" name="expected_version" value="{{ loc.work_version }}">
+  <p><button type="submit" name="action" value="publish" class="default" {% if loc.review_state != 'submitted' %}disabled{% endif %}>Diese Fassung freigeben</button></p>
+  <p><label>Rückmeldung an Betreuung<br><textarea name="feedback" rows="3" cols="60"></textarea></label><br>
+     <button type="submit" name="action" value="reject" {% if loc.review_state != 'submitted' %}disabled{% endif %}>Zurückweisen</button></p>
+  {% if pub and pub.is_active %}<p><button type="submit" name="action" value="withdraw">Veröffentlichung zurückziehen</button></p>{% endif %}
+</form>
+<p><a href="{% url 'admin:locations_location_change' loc.pk %}">Zur Arbeitsfassung</a></p>
+{% endblock %}

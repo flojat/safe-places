@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal">
+  <p><a href="{% url 'portal:edit' loc.public_id %}">← Zurück zur Bearbeitung</a></p>
+  <h1>Vorschau der Arbeitsfassung</h1>
+  <p class="muted">So würde die aktuelle Arbeitsfassung nach einer Freigabe erscheinen. Nichts davon ist bereits veröffentlicht.</p>
+  {% if error %}<p class="error">Lage ungültig: {{ error }}</p>{% else %}
+  <div class="preview-columns">
+    <div class="preview-col"><h2>Gast</h2>
+      <p><strong>{{ v.title }}</strong> · {{ v.place_text }}</p>
+      <p>{{ v.preview_text }}</p>
+      <p class="muted">Vorschaupunkt: {{ v.preview_lat }}, {{ v.preview_lon }}</p>
+      {% for p in guest_photos %}<img src="{% url 'locations:photo' p.public_id 'vorschau' %}" alt="{{ p.alt_text }}" width="120">{% endfor %}
+    </div>
+    <div class="preview-col"><h2>Mitglied</h2>
+      <p class="prewrap">{{ v.long_description }}</p>
+      {% if v.details %}<p class="prewrap">{{ v.details }}</p>{% endif %}
+      <p>Kontakt: {% if v.contact_name or v.contact_email or v.contact_phone %}{{ v.contact_name }} {{ v.contact_organisation }} {{ v.contact_email }} {{ v.contact_phone }} {{ v.contact_website }}{% else %}nicht freigegeben{% endif %}</p>
+      <p>Genaue Lage: {% if v.member_lat %}{{ v.member_address }} ({{ v.member_lat }}, {{ v.member_lon }}){% else %}nicht freigegeben{% endif %}</p>
+      {% for p in member_photos %}<img src="{% url 'locations:photo' p.public_id 'vorschau' %}" alt="{{ p.alt_text }}" width="120">{% endfor %}
+    </div>
+    <div class="preview-col"><h2>Nur intern</h2>
+      <p>Adresse: {{ loc.exact_address|default:"–" }}</p>
+      <p>Notizen: <span class="prewrap">{{ loc.internal_notes|default:"–" }}</span></p>
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

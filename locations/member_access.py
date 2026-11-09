@@ -113,14 +113,11 @@ def can_view_private_photo(request, photo: Photo) -> bool:
     if not is_fully_verified(request):
         return False
     user = request.user
-    if user.is_superuser:
+    from .roles import is_admin, is_editor, is_object_manager
+
+    if is_admin(user) or is_editor(user):
         return True
-    if user.is_staff and user.has_perm("locations.change_location"):
-        return True
-    return (
-        photo.location.managed_by_id == user.pk
-        and user.groups.filter(name="Objektbetreuung").exists()
-    )
+    return photo.location.managed_by_id == user.pk and is_object_manager(user)
 
 
 def photo_access(request, photo: Photo, variant: str) -> bool:

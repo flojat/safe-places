@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Meine Objekte · Adresskarte{% endblock %}
+{% block content %}
+<section class="portal">
+  <h1>Meine Objekte</h1>
+  <p><a class="button" href="{% url 'portal:create' %}">Neues Objekt erfassen</a></p>
+  {% if locations %}
+  <table class="table">
+    <thead><tr><th>Titel</th><th>Arbeitsfassung</th><th>Veröffentlicht</th></tr></thead>
+    <tbody>
+    {% for loc in locations %}
+      <tr>
+        <td><a href="{% url 'portal:edit' loc.public_id %}">{{ loc.title|default:"(ohne Titel)" }}</a></td>
+        <td>{{ loc.get_review_state_display }} · v{{ loc.work_version }}</td>
+        <td>{% if loc.published and loc.published.is_active %}ja (v{{ loc.published.source_work_version }}){% elif loc.published %}zurückgezogen{% else %}nein{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p>Ihnen sind noch keine Objekte zugeordnet.</p>
+  {% endif %}
+</section>
+{% endblock %}

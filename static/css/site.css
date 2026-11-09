@@ -74,3 +74,19 @@ button.secondary { background: #fff; border: 1px solid var(--line); }
 .gallery { display: flex; flex-wrap: wrap; gap: .5rem; }
 .gallery img { border-radius: 4px; height: auto; }
 .results img.list-thumb { float: right; width: 72px; height: auto; margin-left: .5rem; border-radius: 3px; }
+
+/* Portal */
+.portal { padding: 1rem; max-width: 60rem; }
+.table { border-collapse: collapse; width: 100%; }
+.table th, .table td { text-align: left; padding: .4rem; border-bottom: 1px solid var(--line); }
+.work-form > div { margin-bottom: .6rem; display: flex; flex-direction: column; gap: .2rem; max-width: 40rem; }
+.work-form input:not([type=checkbox]), .work-form textarea, .work-form select { padding: .4rem; font: inherit; }
+.work-form .errorlist, .upload .errorlist { color: #b3261e; }
+.photo-grid { display: flex; flex-wrap: wrap; gap: .75rem; }
+.photo-card { border: 1px solid var(--line); padding: .5rem; background: #fff; max-width: 14rem; }
+.photo-card form { display: flex; flex-direction: column; gap: .3rem; }
+.photo-card.withdrawn img { opacity: .4; }
+.upload { margin-top: 1rem; display: flex; flex-direction: column; gap: .4rem; max-width: 30rem; }
+.preview-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.preview-col { background: #fff; border: 1px solid var(--line); padding: .75rem; }
+a.button { display: inline-block; padding: .45rem .9rem; background: var(--accent); color: #fff; text-decoration: none; border-radius: 4px; }

@@ -27,7 +27,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 1 | Datenmodell Objekt/Anbieter/Snapshot/Foto, drei Projektionen, Gastkarte/-liste, Leaflet lokal, seed_demo | umgesetzt; Gast-Requestlimits und Bildverarbeitung OFFEN (Etappe 3) |
 | 2 | Registrierung, E-Mail-Bestaetigung, E-Mail-/TOTP-Login, Sitzungsschutz, Passwortreset, atomarer Limiter | umgesetzt; offen: Faktorwechsel/E-Mail-Aenderung mit frischer Reauth, Benachrichtigungsmails, Recovery-Code-Nutzungsprotokoll (Etappe 4/6) |
 | 3 | Freigabebuchungen/Kontingente, Mitgliedsdetails mit Kontakten, sichere Bildverarbeitung, Fotoauslieferung, Gast-/Mitglieds-Requestlimits | umgesetzt; Upload-UI folgt mit Etappe 4 (Portal) |
-| 4 | Meine Objekte, Redaktion, Administration | OFFEN |
+| 4 | Betreuerportal, Redaktion (Fassungsvergleich/Freigabe/Zurueckweisung), Administration (Rollen/Sperren), frische Bestaetigung, E-Mail-Aenderung | umgesetzt; offen: Benachrichtigung bei Faktoraenderung/Recovery-Code-Nutzung per Mail, zusaetzlichen Faktor nachtraeglich einrichten, administrativer Recovery-Prozess (Etappe 6/7) |
 | 5 | swisstopo-Gateway, Budgets, Geokodierung | OFFEN |
 | 6 | Initialkonten, Aktivierung, Installations-/Deploymentroutine | OFFEN |
 | 7 | Konkurrenz-/Browsertests, Dokumentation | OFFEN |
@@ -54,11 +54,29 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-09 | Browsertest Mitglied: TOTP-Login im Browser, Rueckkehr zum Objekt, Oeffnen, Kontakte/Fotos/Detailkarte geladen | BESTANDEN |
 | 2026-11-09 | Gefunden/behoben: Direktlink ohne bestehende Sitzung lieferte 403 (Sitzungsschluessel erst am Antwortende); Gastsitzungs-Laufzeit wurde in Mitgliedssitzung uebernommen | behoben |
 | 2026-11-09 | Parallel-Buchungstest einmal rot: Ursache Testannahme (Objekt 0 kann korrekt erst nach Kontingentende drankommen), Verhalten korrekt; Test korrigiert, Sperrzeilen zusaetzlich vor der Buchungstransaktion angelegt; danach 10x Einzeltest + 2x Gesamtsuite (127) | BESTANDEN |
+| 2026-11-09 | Etappe 4: Testsuite 156 Tests (u. a. Betreuer A/B mit manipulierten IDs in URL/POST/Upload/Foto, versteckte Felder, fremder Anbieter, ungueltige Koordinaten, Versionskonflikt, Rechteentzug/Neuzuordnung sofort wirksam, Upload-Regeln, Freigabe erst nach Redaktion, veraltete Freigabe abgewiesen, Rueckmeldung sichtbar/Redaktionsnotiz nicht, Rueckzug sofort/kein Selbst-Republish, Kontaktrueckzug stoppt Mitgliedsauslieferung, Redaktion ohne Konten/Gruppen/OTP-Admin, keine Massenaktionen, Zuweisung nur an Betreuer, Rollenvergabe nur mit frischer Bestaetigung + Protokoll + Sitzungsende, Sperre, keine Hashes/TOTP-Schluessel im Admin, keine Selbstentziehung, Backup-Codes nur mit Reauth, Reauth-Ablauf, E-Mail-Aenderung mit Bestaetigung/Benachrichtigung/Replay-Schutz, paralleles Speichern vs. Freigeben), 2x | BESTANDEN |
+| 2026-11-09 | Wettlauf Speichern/Freigeben mit echten DB-Verbindungen, 8x wiederholt | BESTANDEN |
+| 2026-11-09 | Gefunden/behoben: Konten-Admin haette veraltete `security_generation` zurueckschreiben koennen (jetzt feldweise Updates); Objekt-Admin ohne Versionsvergleich (jetzt `expected_version` + Sperre) | behoben |
 | – | `check --deploy` mit Produktionssettings | OFFEN |
 | – | Apache/WSGI-End-to-End | BLOCKIERT (kein Hostingzugang, Profil unbestaetigt) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
 ## Entscheidungen
+
+- Rollen: Gruppen `Objektbetreuung` (nur Portal, keine Admin-Rechte) und `Redaktion` (Staff +
+  fachliche Modellrechte); Administration = Superuser. Gruppen nur per `ensure_role_groups` bzw.
+  bei Rollenvergabe angelegt, nie per Migration/Signal. Policies pruefen bei jeder Anfrage
+  verifizierte Sitzung, aktuelle Rolle und aktuelle Zuordnung.
+- Portal: Arbeitsfassung mit `expected_version`; jede Aenderung erhoeht `work_version` und setzt
+  eingereichte/freigegebene Fassungen auf Entwurf. Rueckzug von Objekt, Kontakten (neue
+  disclosure_version) und Fotos sofort; Veroeffentlichung nur durch Redaktion/Administration.
+- Admin: OTP-Geraete-, Gruppen- und Axes-Admin entfernt (keine Geheimnisse sichtbar). Konten nur fuer
+  Superuser, ohne Passwortfeld; E-Mail nur ueber den Bestaetigungsweg aenderbar. Rollen-/Sperr-
+  aenderungen verlangen Reauth, werden protokolliert und beenden bestehende Sitzungen.
+- Frische Bestaetigung: Passwort + Code eines eigenen Faktors (App, E-Mail-Code mit Zweck "reauth",
+  oder Wiederherstellungscode), 5 min gueltig. Gilt fuer Backup-Codes, E-Mail-Aenderung, Kontenadmin.
+- E-Mail-Aenderung: angeforderte Adresse in `pending_email`; OTP-Empfaenger bleibt bis zur
+  Bestaetigung die alte Adresse; alte Adresse wird benachrichtigt; Bestaetigung beendet alle Sitzungen.
 
 - Freigabebuchung `DisclosureGrant` (Konto, freigegebener Stand, disclosure_version, 24 h ab erster
   Buchung, keine Verlaengerung). Buchung nur per CSRF-geschuetztem POST; GET zeigt Details nur bei

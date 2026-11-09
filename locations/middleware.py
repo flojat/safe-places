@@ -30,7 +30,9 @@ def init_session(request, user) -> None:
 def _limits(user) -> tuple[int, int]:
     if not (hasattr(user, "is_verified") and user.is_verified()):
         return SETUP_IDLE_SECONDS, SETUP_ABSOLUTE_SECONDS
-    if user.is_staff or user.is_superuser or user.groups.filter(name="Objektbetreuung").exists():
+    from .roles import is_object_manager
+
+    if user.is_staff or user.is_superuser or is_object_manager(user):
         return (int(settings.WORK_SESSION_IDLE.total_seconds()),
                 int(settings.WORK_SESSION_ABSOLUTE.total_seconds()))
     return (int(settings.MEMBER_SESSION_IDLE.total_seconds()),

@@ -273,3 +273,80 @@ def reserve_otp_attempt(request, user) -> None:
         *rate_limits.configured("otp_attempt_account", str(user.pk)),
         *rate_limits.configured("otp_attempt_ip", rate_limits.client_ip(request)),
     ])
+
+
+# --- E-Mail-Aenderung ----------------------------------------------------------
+
+CHANGE_SALT = "adresskarte.email-change"
+CHANGE_PURPOSE = "change-email"
+SESSION_CHANGE_TOKEN = "pending_email_change"
+
+
+def request_email_change(user, new_email: str, request) -> None:
+    """Speichert die angeforderte Adresse, sendet Bestaetigung an NEUE und Hinweis an ALTE
+    Adresse. Die verifizierte Adresse (und damit der OTP-Empfaenger) bleibt bis zur
+    Bestaetigung unveraendert. Gleiche Antwort auch bei bereits vergebener Adresse."""
+    rate_limits.reserve(rate_limits.configured("email_change_account", str(user.pk)))
+    new_email = normalize_email_address(new_email)
+    User = get_user_model()
+    if new_email == user.email:
+        return
+    taken = User.objects.filter(email=new_email).exists()
+    with transaction.atomic():
+        User.objects.filter(pk=user.pk).update(
+            pending_email="" if taken else new_email, pending_email_requested_at=timezone.now(),
+            security_generation=F("security_generation") + 1,  # alte Aenderungslinks ungueltig
+        )
+    user.refresh_from_db()
+    if request.user.pk == user.pk:
+        request.session[SESSION_GENERATION] = user.security_generation
+    AuditEvent.objects.create(actor=user, action="email_change_requested", target_type="user", target_id=str(user.pk))
+    try:
+        security_mail.send(
+            purpose="email-change-notice", recipient=user.email, user=user, request=request,
+            subject="Änderung Ihrer E-Mail-Adresse angefordert",
+            body=render_to_string("emails/email_change_notice.txt", {}),
+        )
+        if not taken:
+            payload = {"u": user.pk, "e": _email_fingerprint(new_email), "g": user.security_generation,
+                       "p": CHANGE_PURPOSE, "env": settings.ENVIRONMENT}
+            token = signing.dumps(payload, salt=CHANGE_SALT, compress=True)
+            link = request.build_absolute_uri(reverse("account:email_change_token", args=[token]))
+            security_mail.send(
+                purpose="email-change", recipient=new_email, user=user, request=request,
+                subject="Neue E-Mail-Adresse bestätigen",
+                body=render_to_string("emails/email_change_confirm.txt", {"link": link}),
+            )
+    except security_mail.MailBudgetExceeded:
+        pass
+
+
+def confirm_email_change(token: str):
+    try:
+        payload = signing.loads(token, salt=CHANGE_SALT, max_age=settings.EMAIL_VERIFICATION_MAX_AGE)
+    except signing.BadSignature as exc:
+        raise VerificationError("ungueltig") from exc
+    if payload.get("p") != CHANGE_PURPOSE or payload.get("env") != settings.ENVIRONMENT:
+        raise VerificationError("falscher Zweck oder Umgebung")
+    User = get_user_model()
+    with transaction.atomic():
+        user = User.objects.select_for_update().filter(pk=payload.get("u")).first()
+        if (
+            user is None or not user.pending_email
+            or user.security_generation != payload.get("g")
+            or not constant_time_compare(_email_fingerprint(user.pending_email), payload.get("e", ""))
+            or User.objects.filter(email=user.pending_email).exclude(pk=user.pk).exists()
+        ):
+            raise VerificationError("nicht mehr gueltig")
+        user.email = user.pending_email
+        user.pending_email = ""
+        user.pending_email_requested_at = None
+        user.email_verified_at = timezone.now()
+        user.security_generation += 1  # alle Sitzungen/Login-/Reset-Zustaende ungueltig
+        user.save()
+        # OTP-Codes gehen ab jetzt an die neue, bestaetigte Adresse (keine abweichende Geraeteadresse).
+        EmailDevice.objects.filter(user=user).update(email=None)
+        LoginChallenge.objects.filter(user=user, state=LoginChallenge.State.ACTIVE).update(
+            state=LoginChallenge.State.SUPERSEDED)
+        AuditEvent.objects.create(actor=user, action="email_changed", target_type="user", target_id=str(user.pk))
+    return user

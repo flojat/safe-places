@@ -22,6 +22,7 @@ two_factor_patterns = ([
 urlpatterns = [
     path("konto/", include(two_factor_patterns)),
     path("konto/", include("locations.account_urls")),
+    path("meine-objekte/", include("locations.portal_urls")),
     path("verwaltung/", admin.site.urls),
     path("", include("locations.urls")),
 ]

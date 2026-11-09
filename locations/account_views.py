@@ -279,6 +279,13 @@ class QRGeneratorView(tf_core.QRGeneratorView):
 
 @method_decorator(fully_verified_required, name="dispatch")
 class BackupTokensView(tf_core.BackupTokensView):
+    def post(self, request, *args, **kwargs):
+        from .reauth import is_recent, redirect_to_reauth
+
+        if not is_recent(request):  # neue Codes = sensible Faktoraenderung
+            return redirect_to_reauth(request, request.path)
+        return super().post(request, *args, **kwargs)
+
     def form_valid(self, form):
         response = super().form_valid(form)
         AuditEvent.objects.create(actor=self.request.user, action="backup_codes_generated",
@@ -499,3 +506,57 @@ class PasswordResetConfirmView(auth_views.PasswordResetConfirmView):
 def on_user_logged_in(sender, request, user, **kwargs):
     if request is not None and hasattr(request, "session"):
         init_session(request, user)
+
+
+# --- E-Mail-Aenderung ----------------------------------------------------------
+
+class EmailChangeForm(forms.Form):
+    new_email = forms.EmailField(label="Neue E-Mail-Adresse", max_length=254)
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+@fully_verified_required
+def email_change(request):
+    from .reauth import is_recent, redirect_to_reauth
+
+    if not is_recent(request):
+        return redirect_to_reauth(request, request.get_full_path())
+    form = EmailChangeForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            auth_flows.request_email_change(request.user, form.cleaned_data["new_email"], request)
+        except rate_limits.RateLimited as exc:
+            response = render(request, "account/rate_limited.html", {"retry_minutes": max(1, exc.retry_after // 60)}, status=429)
+            return _no_store(response)
+        except rate_limits.RateLimiterUnavailable:
+            return _no_store(render(request, "account/unavailable.html", status=503))
+        return _no_store(render(request, "account/email_change_sent.html"))
+    return _no_store(render(request, "account/email_change.html", {"form": form}))
+
+
+@never_cache
+@require_http_methods(["GET"])
+def email_change_token(request, token: str):
+    request.session[auth_flows.SESSION_CHANGE_TOKEN] = token
+    response = _no_store(redirect("account:email_change_confirm"))
+    response["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def email_change_confirm(request):
+    token = request.session.get(auth_flows.SESSION_CHANGE_TOKEN)
+    if request.method == "POST":
+        request.session.pop(auth_flows.SESSION_CHANGE_TOKEN, None)
+        try:
+            if not token:
+                raise auth_flows.VerificationError("fehlt")
+            auth_flows.confirm_email_change(token)
+        except auth_flows.VerificationError:
+            return _no_store(render(request, "account/verify_invalid.html", status=400))
+        return _no_store(render(request, "account/email_change_done.html"))
+    if not token:
+        return _no_store(render(request, "account/verify_invalid.html", status=400))
+    return _no_store(render(request, "account/email_change_confirm.html"))

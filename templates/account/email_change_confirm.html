@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth"><h1>Neue E-Mail-Adresse bestätigen</h1>
+<p>Nach der Bestätigung werden alle Sitzungen beendet; melden Sie sich danach neu an.</p>
+<form method="post">{% csrf_token %}<button type="submit">Neue Adresse bestätigen</button></form></section>
+{% endblock %}

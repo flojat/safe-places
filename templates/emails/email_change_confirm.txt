@@ -1,0 +1,8 @@
+Guten Tag
+
+Bitte bestätigen Sie Ihre neue E-Mail-Adresse für die Adresskarte:
+
+{{ link }}
+
+Der Link ist 24 Stunden gültig. Nach der Bestätigung werden alle Sitzungen beendet; melden Sie sich neu an.
+Falls Sie das nicht angefordert haben, ignorieren Sie diese E-Mail.

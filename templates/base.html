@@ -14,6 +14,8 @@
     <span class="demo-badge">Prototyp · Demodaten, keine realen Angebote</span>
     <nav class="site-nav">
       {% if user.is_authenticated %}
+        {% if nav_portal %}<a href="{% url 'portal:list' %}">Meine Objekte</a>{% endif %}
+        {% if nav_admin %}<a href="{% url 'admin:index' %}">Verwaltung</a>{% endif %}
         <a href="{% url 'account:home' %}">Mein Konto</a>
         <form method="post" action="{% url 'account:logout' %}" class="inline-form">{% csrf_token %}<button type="submit" class="link-button">Abmelden</button></form>
       {% else %}

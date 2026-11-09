@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ loc.title|default:"Objekt" }} bearbeiten · Adresskarte{% endblock %}
+{% block content %}
+<section class="portal">
+  <p><a href="{% url 'portal:list' %}">← Meine Objekte</a></p>
+  <h1>{{ loc.title|default:"(ohne Titel)" }}</h1>
+  {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+  <p class="muted">Arbeitsfassung v{{ loc.work_version }} · Status: {{ loc.get_review_state_display }}
+    {% if published %} · Veröffentlicht: {% if published.is_active %}v{{ published.source_work_version }}{% else %}zurückgezogen{% endif %}{% endif %}</p>
+  {% if loc.review_state == 'rejected' and loc.review_feedback %}
+    <aside class="notice"><strong>Rückmeldung der Redaktion:</strong> <span class="prewrap">{{ loc.review_feedback }}</span></aside>
+  {% endif %}
+  <p><a href="{% url 'portal:preview' loc.public_id %}">Vorschau je Sichtbarkeitsstufe</a></p>
+
+  <div class="actions">
+    <form method="post" action="{% url 'portal:submit' loc.public_id %}">{% csrf_token %}
+      <input type="hidden" name="expected_version" value="{{ loc.work_version }}">
+      <button type="submit" {% if loc.review_state == 'submitted' %}disabled{% endif %}>Zur Prüfung einreichen</button>
+    </form>
+    {% if published and published.is_active %}
+      <form method="post" action="{% url 'portal:withdraw' loc.public_id %}">{% csrf_token %}<button type="submit" class="secondary">Veröffentlichung sofort zurückziehen</button></form>
+      <form method="post" action="{% url 'portal:withdraw_contacts' loc.public_id %}">{% csrf_token %}<button type="submit" class="secondary">Kontakte sofort zurückziehen</button></form>
+    {% endif %}
+  </div>
+  {% if missing %}<p class="muted">Für die Freigabe fehlt noch: {{ missing|join:", " }}</p>{% endif %}
+
+  <form method="post" novalidate class="work-form">{% csrf_token %}
+    {{ form.as_div }}
+    <p class="muted">Die genaue Lage ist intern. Gäste sehen nur die grobe Vorschaulage (ohne Angabe: ca. 2 km Raster). Mitglieder sehen die genaue Lage nur, wenn Sie sie ausdrücklich freigeben.</p>
+    <button type="submit">Arbeitsfassung speichern</button>
+  </form>
+
+  <h2>Fotos</h2>
+  <div class="photo-grid">
+  {% for p in photos %}
+    <div class="photo-card{% if p.is_withdrawn %} withdrawn{% endif %}">
+      <img src="{% url 'locations:photo' p.public_id 'vorschau' %}" alt="{{ p.alt_text }}" width="160">
+      {% if p.is_withdrawn %}<p class="muted">zurückgezogen</p>{% else %}
+      <form method="post" action="{% url 'portal:photo_update' loc.public_id p.public_id %}">{% csrf_token %}
+        <input name="alt_text" value="{{ p.alt_text }}" maxlength="200" aria-label="Alternativtext">
+        <select name="visibility" aria-label="Sichtbarkeit">
+          <option value="internal" {% if p.visibility == 'internal' %}selected{% endif %}>Intern</option>
+          <option value="guest_preview" {% if p.visibility == 'guest_preview' %}selected{% endif %}>Gastvorschau</option>
+          <option value="member_detail" {% if p.visibility == 'member_detail' %}selected{% endif %}>Mitgliederdetail</option>
+        </select>
+        <input type="number" name="sort_order" value="{{ p.sort_order }}" min="0" max="999" aria-label="Reihenfolge">
+        <button type="submit">Speichern</button>
+        <button type="submit" name="action" value="withdraw" class="secondary">Sofort zurückziehen</button>
+      </form>{% endif %}
+    </div>
+  {% empty %}<p class="muted">Noch keine Fotos.</p>{% endfor %}
+  </div>
+  <form method="post" action="{% url 'portal:photo_upload' loc.public_id %}" enctype="multipart/form-data" class="upload">{% csrf_token %}
+    {{ upload_form.as_div }}
+    <p class="muted">Keine Bilder mit lesbaren Dokumenten, Kontaktdaten oder genauen privaten Lageangaben als Gastvorschau verwenden.</p>
+    <button type="submit">Hochladen</button>
+  </form>
+</section>
+{% endblock %}

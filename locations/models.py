@@ -66,6 +66,9 @@ class User(AbstractUser):
     )
     # Erhoehung invalidiert bestehende Sitzungen, Login-Challenges und Tokens.
     security_generation = models.PositiveIntegerField(default=0)
+    # Angeforderte neue Adresse; ersetzt die verifizierte Adresse erst nach Bestaetigung.
+    pending_email = models.EmailField("Angeforderte neue E-Mail", blank=True, max_length=254)
+    pending_email_requested_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS: list[str] = []
@@ -342,6 +345,8 @@ class AuditEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "Protokolleintrag"
+        verbose_name_plural = "Protokoll"
         indexes = [models.Index(fields=["target_type", "target_id"])]
 
 

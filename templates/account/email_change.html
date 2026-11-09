@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>E-Mail-Adresse ändern</h1>
+  <p>Ihre bisherige Adresse bleibt gültig und empfängt weiterhin Anmeldecodes, bis Sie die neue Adresse über den Link bestätigt haben. Die bisherige Adresse wird benachrichtigt.</p>
+  <form method="post" novalidate>{% csrf_token %}{{ form.as_div }}<button type="submit">Bestätigungslink senden</button></form>
+</section>
+{% endblock %}

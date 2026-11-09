@@ -1,0 +1,5 @@
+{% extends "admin/change_form.html" %}
+{% block object-tools-items %}
+  {% if original %}<li><a href="{% url 'admin:locations_location_compare' original.pk %}">Fassungsvergleich und Freigabe</a></li>{% endif %}
+  {{ block.super }}
+{% endblock %}

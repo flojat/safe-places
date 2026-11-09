@@ -1,0 +1,6 @@
+Guten Tag
+
+Für Ihr Konto bei der Adresskarte wurde eine Änderung der E-Mail-Adresse angefordert.
+Ihre bisherige Adresse bleibt gültig, bis die neue Adresse bestätigt ist.
+
+Falls Sie das nicht waren, ändern Sie bitte sofort Ihr Passwort und informieren Sie die Administration.

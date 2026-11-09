@@ -43,6 +43,9 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 - `locations/request_limits.py`: Gastsitzung und Besucherlimits (`limited`-Decorator).
 - `locations/services/images.py`: Bildpruefung und Varianten; Testmedien liegen in einem Temp-Verzeichnis.
 - `seed_demo --rebuild-demo` ersetzt nur Demo-Objekte (external_id demo-*) inkl. Demobilder.
+- `locations/roles.py`: Rollengruppen; `manage.py ensure_role_groups` (ausdruecklich, ohne Kontozuweisung).
+- `locations/owner_views.py` + `forms.py`: Betreuerportal `/meine-objekte/`; `admin.py`: Redaktion/Administration.
+- `locations/reauth.py`: frische Bestaetigung (`recent_reauth_required`, 5 min).
 - Wartung: `manage.py cleanup_security_state` (per Hosting-Cron).
 - Testhilfen fuer echte Login-Ablaeufe: `locations/tests/helpers_auth.py`.
 - Tests markieren interne Werte mit `CANARY-`, Mitgliedswerte mit `MITGLIEDERDETAIL-`.

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth"><h1>E-Mail-Adresse geändert</h1>
+<p>Bitte melden Sie sich neu an. Anmeldecodes gehen ab jetzt an die neue Adresse.</p>
+<p><a href="{% url 'two_factor:login' %}">Zur Anmeldung</a></p></section>
+{% endblock %}

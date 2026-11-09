@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>Neues Objekt</h1>
+  <p>Es entsteht ein privater Entwurf. Sichtbar wird das Objekt erst nach Einreichung und redaktioneller Freigabe.</p>
+  <form method="post" novalidate>{% csrf_token %}{{ form.as_div }}<button type="submit">Entwurf anlegen</button></form>
+</section>
+{% endblock %}

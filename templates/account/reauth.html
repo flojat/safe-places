@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>Erneut bestätigen</h1>
+  <p>Für diese sensible Änderung bestätigen Sie bitte Passwort und zweiten Schritt. Die Bestätigung gilt 5 Minuten.</p>
+  {% if has_email %}
+    <form method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ next }}">
+      <button type="submit" name="send_code" value="1" class="secondary">E-Mail-Code senden</button></form>
+    {% if sent and sent.sent %}<p class="notice">Code gesendet (5 Minuten gültig).</p>{% elif sent %}<p class="error">Code konnte jetzt nicht gesendet werden. Bitte kurz warten.</p>{% endif %}
+  {% endif %}
+  <form method="post" novalidate>{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {{ form.as_div }}
+    <button type="submit">Bestätigen</button>
+  </form>
+</section>
+{% endblock %}

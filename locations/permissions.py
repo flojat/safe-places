@@ -57,3 +57,33 @@ def fully_verified_required(view):
         return response
 
     return wrapper
+
+
+# --- Rollenbezogene Policies (Etappe 4) ---------------------------------------
+# Jede Pruefung: vollstaendig verifizierte Sitzung + aktuelle Rolle + aktuelle Zuordnung.
+
+
+def can_use_owner_portal(request) -> bool:
+    from .roles import is_object_manager
+
+    return is_fully_verified(request) and is_object_manager(request.user)
+
+
+def can_manage_location(request, location) -> bool:
+    return can_use_owner_portal(request) and location.managed_by_id == request.user.pk
+
+
+def can_manage_provider(request, provider) -> bool:
+    return can_use_owner_portal(request) and provider.managed_by_id == request.user.pk
+
+
+def can_publish(request) -> bool:
+    from .roles import is_admin, is_editor
+
+    return is_fully_verified(request) and (is_editor(request.user) or is_admin(request.user))
+
+
+def can_administer(request) -> bool:
+    from .roles import is_admin
+
+    return is_fully_verified(request) and is_admin(request.user)
