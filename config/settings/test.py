@@ -33,3 +33,12 @@ DEBUG = False
 ALLOWED_HOSTS = ["testserver", "127.0.0.1", "localhost"]
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]  # nur Testgeschwindigkeit
+
+# Erwartete 400/404-Antworten in Tests nicht als Warnungen ausgeben.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {"django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+}

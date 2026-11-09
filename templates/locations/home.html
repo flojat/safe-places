@@ -1,5 +1,37 @@
 {% extends "base.html" %}
+{% load static %}
+{% block head %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">{% endblock %}
+{% block main_class %}explore{% endblock %}
 {% block content %}
-<h1>Adresskarte</h1>
-<p>Prototyp im Aufbau. Demodaten, keine realen Angebote.</p>
+<div class="view-toggle" role="tablist" aria-label="Ansicht">
+  <button type="button" role="tab" id="show-list" aria-selected="true">Liste</button>
+  <button type="button" role="tab" id="show-map" aria-selected="false">Karte</button>
+</div>
+<section class="panel list-panel" id="list-panel" aria-label="Trefferliste">
+  <form class="filters" id="filters" role="search" autocomplete="off">
+    <label for="q">Suche</label>
+    <input type="search" id="q" name="q" maxlength="80" placeholder="Titel, Ort, Kategorie">
+    <label for="category">Kategorie</label>
+    <select id="category" name="category">
+      <option value="">Alle</option>
+      {% for value, label in categories %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+    </select>
+  </form>
+  <p class="status" id="status" aria-live="polite"></p>
+  <ol class="results" id="results"></ol>
+  <nav class="pager" aria-label="Seiten">
+    <button type="button" id="prev">Zurück</button>
+    <span id="page-info"></span>
+    <button type="button" id="next">Weiter</button>
+  </nav>
+</section>
+<section class="panel map-panel" id="map-panel" aria-label="Karte">
+  <div id="map"></div>
+  <p class="map-hint" id="map-hint" hidden></p>
+</section>
+{{ map_config|json_script:"map-config" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/explore.js' %}"></script>
 {% endblock %}

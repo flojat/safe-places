@@ -1,9 +1,13 @@
-"""Datenmodell. Etappe 0/1: Benutzerbasis (vor der ersten Migration festgelegt)."""
+"""Datenmodell: Benutzerbasis, Anbieter, Objekte, freigegebene Staende, Fotos."""
 
 from __future__ import annotations
 
+import secrets
+
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.db.models import Q
 
 
 def normalize_email_address(value: str) -> str:
@@ -79,3 +83,263 @@ class User(AbstractUser):
     @property
     def email_verified(self) -> bool:
         return self.email_verified_at is not None
+
+
+# ---------------------------------------------------------------------------
+# Etappe 1: Anbieter, Objekt (Arbeitsfassung), freigegebener Snapshot, Fotos
+# ---------------------------------------------------------------------------
+
+_PUBLIC_ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+
+
+def new_public_id() -> str:
+    """Nicht fortlaufende oeffentliche ID; kein Zugriffsnachweis."""
+    return "".join(secrets.choice(_PUBLIC_ID_ALPHABET) for _ in range(12))
+
+
+def _coordinate_constraints(prefix: str, lat: str, lon: str) -> list:
+    return [
+        models.CheckConstraint(
+            condition=Q(**{f"{lat}__isnull": True}) | Q(**{f"{lat}__gte": -90, f"{lat}__lte": 90}),
+            name=f"{prefix}_{lat}_range",
+        ),
+        models.CheckConstraint(
+            condition=Q(**{f"{lon}__isnull": True}) | Q(**{f"{lon}__gte": -180, f"{lon}__lte": 180}),
+            name=f"{prefix}_{lon}_range",
+        ),
+        models.CheckConstraint(
+            condition=(Q(**{f"{lat}__isnull": True}) & Q(**{f"{lon}__isnull": True}))
+            | (Q(**{f"{lat}__isnull": False}) & Q(**{f"{lon}__isnull": False})),
+            name=f"{prefix}_{lat}_{lon}_pair",
+        ),
+    ]
+
+
+def _coord_field(label: str):
+    return models.DecimalField(label, max_digits=9, decimal_places=6, null=True, blank=True)
+
+
+class Category(models.TextChoices):
+    BERATUNG = "beratung", "Beratung"
+    TREFFPUNKT = "treffpunkt", "Treffpunkt"
+    UNTERKUNFT = "unterkunft", "Unterkunft"
+    GESUNDHEIT = "gesundheit", "Gesundheit"
+    BILDUNG = "bildung", "Bildung"
+    FREIZEIT = "freizeit", "Freizeit"
+
+
+class Provider(models.Model):
+    """Anbieter: private Stammdaten getrennt von freigabefaehigen Kontaktfeldern."""
+
+    managed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="managed_providers",
+    )
+    # Privat, nie in Gast-/Mitgliedsprojektionen.
+    name = models.CharField("Interner Name", max_length=200)
+    correspondence_address = models.TextField("Korrespondenzadresse (privat)", blank=True)
+    internal_notes = models.TextField("Interne Notizen", blank=True)
+    # Freigabefaehige Kontaktvorlage; wird nie automatisch in Objekte kopiert.
+    contact_name = models.CharField("Kontaktname", max_length=200, blank=True)
+    contact_organisation = models.CharField("Organisation", max_length=200, blank=True)
+    contact_email = models.EmailField("Kontakt-E-Mail", blank=True)
+    contact_phone = models.CharField("Kontakttelefon", max_length=40, blank=True)
+    contact_website = models.URLField("Website", blank=True)
+    is_demo = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Anbieter"
+        verbose_name_plural = "Anbieter"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Location(models.Model):
+    """Objekt-Arbeitsfassung. Sichtbar fuer Besucher ist nur PublishedLocation."""
+
+    class ReviewState(models.TextChoices):
+        DRAFT = "draft", "Entwurf"
+        SUBMITTED = "submitted", "Eingereicht"
+        APPROVED = "approved", "Freigegeben"
+        REJECTED = "rejected", "Zurueckgewiesen"
+
+    public_id = models.CharField(max_length=16, unique=True, default=new_public_id, editable=False)
+    external_id = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    managed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="managed_locations",
+    )
+    provider = models.ForeignKey(
+        Provider, null=True, blank=True, on_delete=models.PROTECT, related_name="locations"
+    )
+
+    title = models.CharField("Titel", max_length=160, blank=True)
+    category = models.CharField("Kategorie", max_length=32, choices=Category.choices, blank=True)
+    preview_text = models.CharField("Vorschautext", max_length=400, blank=True)
+    long_description = models.TextField("Langbeschreibung (Mitglieder)", blank=True)
+    details = models.TextField("Detailangaben (Mitglieder)", blank=True)
+
+    # Genaue Lage: intern; fuer Mitglieder nur bei expliziter Freigabe.
+    exact_address = models.CharField("Genaue Adresse (intern)", max_length=300, blank=True)
+    exact_lat = _coord_field("Breite genau")
+    exact_lon = _coord_field("Laenge genau")
+    member_exact_location_released = models.BooleanField(
+        "Genaue Lage fuer Mitglieder freigegeben", default=False
+    )
+    # Grobe, stabile Vorschaulage und Ortstext fuer Gaeste.
+    preview_lat = _coord_field("Breite Vorschau")
+    preview_lon = _coord_field("Laenge Vorschau")
+    place_text = models.CharField("Ort/Region (Vorschau)", max_length=120, blank=True)
+
+    # Objektbezogene, fuer Mitglieder freigabefaehige Kontaktangaben.
+    contact_name = models.CharField("Kontaktname", max_length=200, blank=True)
+    contact_organisation = models.CharField("Organisation", max_length=200, blank=True)
+    contact_email = models.EmailField("Kontakt-E-Mail", blank=True)
+    contact_phone = models.CharField("Kontakttelefon", max_length=40, blank=True)
+    contact_website = models.URLField("Website", blank=True)
+    contacts_released = models.BooleanField("Kontakte fuer Mitglieder freigegeben", default=False)
+
+    review_state = models.CharField(max_length=16, choices=ReviewState.choices, default=ReviewState.DRAFT)
+    work_version = models.PositiveIntegerField(default=1)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_feedback = models.TextField("Rueckmeldung an Betreuer", blank=True)
+    internal_notes = models.TextField("Interne Notizen", blank=True)
+    editorial_notes = models.TextField("Redaktionsnotizen (nicht fuer Betreuer)", blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_demo = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Objekt"
+        verbose_name_plural = "Objekte"
+        constraints = [
+            *_coordinate_constraints("loc", "exact_lat", "exact_lon"),
+            *_coordinate_constraints("loc", "preview_lat", "preview_lon"),
+        ]
+
+    def __str__(self) -> str:
+        return self.title or f"Objekt {self.public_id}"
+
+
+class PublishedLocation(models.Model):
+    """Redaktionell freigegebener Stand. Enthaelt nur Gast- und Mitgliedsfelder.
+
+    Interne Felder (Notizen, interne Adresse ohne Freigabe, Anbieterstammdaten)
+    werden nie hierher kopiert.
+    """
+
+    location = models.OneToOneField(Location, on_delete=models.CASCADE, related_name="published")
+    public_id = models.CharField(max_length=16, unique=True)
+    is_active = models.BooleanField(default=True)  # False nach Rueckzug
+    source_work_version = models.PositiveIntegerField()
+    disclosure_version = models.PositiveIntegerField(default=1)
+    published_at = models.DateTimeField()
+    published_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+
+    # GAST-Projektion
+    title = models.CharField(max_length=160)
+    category = models.CharField(max_length=32, choices=Category.choices)
+    preview_text = models.CharField(max_length=400)
+    place_text = models.CharField(max_length=120)
+    preview_lat = models.DecimalField(max_digits=9, decimal_places=6)
+    preview_lon = models.DecimalField(max_digits=9, decimal_places=6)
+
+    # MITGLIED-Projektion
+    long_description = models.TextField()
+    details = models.TextField(blank=True)
+    member_address = models.CharField(max_length=300, blank=True)
+    member_lat = _coord_field("Breite Mitglied")
+    member_lon = _coord_field("Laenge Mitglied")
+    contact_name = models.CharField(max_length=200, blank=True)
+    contact_organisation = models.CharField(max_length=200, blank=True)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=40, blank=True)
+    contact_website = models.URLField(blank=True)
+    is_demo = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Freigegebener Stand"
+        verbose_name_plural = "Freigegebene Staende"
+        indexes = [models.Index(fields=["is_active", "preview_lat", "preview_lon"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(preview_lat__gte=-90, preview_lat__lte=90, preview_lon__gte=-180, preview_lon__lte=180),
+                name="pub_preview_range",
+            ),
+            *_coordinate_constraints("pub", "member_lat", "member_lon"),
+        ]
+
+
+class Photo(models.Model):
+    """Foto der Arbeitsfassung. Dateien privat; Verarbeitung/Auslieferung ab Etappe 3."""
+
+    class Visibility(models.TextChoices):
+        GUEST_PREVIEW = "guest_preview", "Gastvorschau"
+        MEMBER_DETAIL = "member_detail", "Mitgliederdetail"
+        INTERNAL = "internal", "Intern"
+
+    public_id = models.CharField(max_length=16, unique=True, default=new_public_id, editable=False)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="photos")
+    storage_key = models.CharField(max_length=64, unique=True)  # serverseitig vergeben
+    alt_text = models.CharField(max_length=200, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    visibility = models.CharField(max_length=16, choices=Visibility.choices, default=Visibility.INTERNAL)
+    is_withdrawn = models.BooleanField(default=False)
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+
+class PublishedPhoto(models.Model):
+    """Im freigegebenen Stand eingefrorene Fotofreigabe (Sichtbarkeit, Alttext, Reihenfolge)."""
+
+    published = models.ForeignKey(PublishedLocation, on_delete=models.CASCADE, related_name="photos")
+    photo = models.ForeignKey(Photo, on_delete=models.PROTECT, related_name="+")
+    visibility = models.CharField(max_length=16, choices=Photo.Visibility.choices)
+    alt_text = models.CharField(max_length=200, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["published", "photo"], name="pubphoto_unique"),
+            models.CheckConstraint(
+                condition=~Q(visibility="internal"), name="pubphoto_not_internal"
+            ),
+        ]
+
+
+class AuditEvent(models.Model):
+    """Nachvollziehbarkeit (Abschnitt 7). Keine Kontaktdaten, Codes oder Token-URLs."""
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    action = models.CharField(max_length=64)
+    target_type = models.CharField(max_length=32)
+    target_id = models.CharField(max_length=32)
+    detail = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["target_type", "target_id"])]

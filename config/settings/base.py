@@ -178,3 +178,8 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "WARNING"},
 }
+
+# Karte (Abschnitt 5). Zoomgrenzen vor Etappe 5 gegen die swisstopo-Doku pruefen.
+MAP_TILE_SOURCE = ENV.get("MAP_TILE_SOURCE", "local_test")  # local_test | swisstopo (Etappe 5)
+MAP_MIN_ZOOM = 7
+MAP_MAX_ZOOM = 18

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ obj.title }} · Adresskarte{% endblock %}
+{% block content %}
+<article class="preview">
+  <p class="muted">{{ obj.category_label }} · {{ obj.place }}</p>
+  <h1>{{ obj.title }}</h1>
+  <p>{{ obj.preview_text }}</p>
+  <aside class="notice">
+    <p>Ausführliche Beschreibung, Fotos und Kontaktangaben sind nur für angemeldete Mitglieder
+       mit bestätigter E-Mail-Adresse und zweitem Anmeldeschritt sichtbar.</p>
+    <p><a href="{% url 'two_factor:login' %}?next={{ request.path|urlencode }}">Anmelden</a></p>
+  </aside>
+  <p><a href="{% url 'locations:home' %}">Zurück zur Übersicht</a></p>
+</article>
+{% endblock %}

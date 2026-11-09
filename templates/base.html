@@ -1,11 +1,27 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="de-CH">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
   <title>{% block title %}Adresskarte{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  {% block head %}{% endblock %}
 </head>
 <body>
-  <main>{% block content %}{% endblock %}</main>
+  <header class="site-header">
+    <a class="brand" href="{% url 'locations:home' %}">Adresskarte</a>
+    <span class="demo-badge">Prototyp · Demodaten, keine realen Angebote</span>
+    <nav class="site-nav">
+      {% if user.is_authenticated %}
+        <span class="muted">{{ user.email }}</span>
+        <form method="post" action="{% url 'two_factor:logout' %}" class="inline-form">{% csrf_token %}<button type="submit" class="link-button">Abmelden</button></form>
+      {% else %}
+        <a href="{% url 'two_factor:login' %}?next={{ request.get_full_path|urlencode }}">Anmelden</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main class="{% block main_class %}page{% endblock %}">{% block content %}{% endblock %}</main>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

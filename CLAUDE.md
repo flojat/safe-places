@@ -21,12 +21,21 @@ Fortschritt und wirklich ausgefuehrte Pruefungen: `IMPLEMENTIERUNGSSTATUS.md`.
     .venv/bin/python manage.py makemigrations --check --dry-run
     .venv/bin/python manage.py migrate
     .venv/bin/python manage.py test --settings=config.settings.test --keepdb
+    .venv/bin/python manage.py seed_demo --count 100   # nur lokal/Test, idempotent
     .venv/bin/python manage.py runserver 127.0.0.1:8000
 
 Abhaengigkeiten aendern: `requirements.in` / `requirements-dev.in` anpassen, dann
 `pip-compile --generate-hashes --allow-unsafe --strip-extras` und
 `pip install --require-hashes -r requirements.txt -r requirements-dev.txt`.
 Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwright-browsers`.
+
+## Modulueberblick
+
+- `locations/geo.py`: Koordinatenpruefung (NaN/Inf, CH-Rechteck), grobe Vorschaulage, bbox, Kachelgrenzen.
+- `locations/projections.py`: GAST-/MITGLIED-Feldlisten; Besucherausgaben nur hierueber.
+- `locations/services/publishing.py`: submit/publish/withdraw atomar mit Versionsvergleich.
+- `locations/views.py`: Gastseite, `/api/punkte`, `/api/liste`, `/objekt/<id>/`, `/map/tiles/...`.
+- Tests markieren interne Werte mit `CANARY-`, Mitgliedswerte mit `MITGLIEDERDETAIL-`.
 
 ## Sicherheitsregeln fuer die Weiterarbeit
 
