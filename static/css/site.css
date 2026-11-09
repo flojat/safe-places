@@ -48,3 +48,20 @@ a { color: var(--accent); }
   .explore[data-view="list"] .map-panel { display: none; }
   .explore[data-view="map"] .list-panel { display: none; }
 }
+
+/* Konto- und Anmeldeseiten */
+.auth { max-width: 32rem; padding: 1rem; }
+.auth form > div { margin-bottom: .75rem; display: flex; flex-direction: column; gap: .25rem; }
+.auth form > div.actions { flex-direction: row; align-items: center; }
+.auth input[type=email], .auth input[type=password], .auth input[type=text], .auth input:not([type]), .auth select { padding: .45rem; font: inherit; }
+.auth .helptext, .auth .helptext ul { font-size: .85rem; color: var(--muted); }
+.auth .errorlist { color: #b3261e; margin: .2rem 0; padding-left: 1.1rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .5rem 0 1rem; }
+button { padding: .45rem .9rem; font: inherit; cursor: pointer; }
+button.secondary { background: #fff; border: 1px solid var(--line); }
+.notice { background: var(--warn-bg); padding: .5rem .75rem; border-radius: 4px; }
+.error { color: #b3261e; }
+.facts dt { font-weight: 600; margin-top: .4rem; }
+.facts dd { margin: 0; }
+.codes { columns: 2; font-size: 1.05rem; }
+.qr { background: #fff; padding: .5rem; max-width: 14rem; }

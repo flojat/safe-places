@@ -25,7 +25,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 0 | Preflight/Hostingpruefung (`scripts/manage_installation.py`) | OFFEN |
 | 0/1 | Projektgeruest, Lockdateien mit Hashes, Settings local/test/production, Benutzermodell, erste Migrationen | umgesetzt (siehe Pruefungen) |
 | 1 | Datenmodell Objekt/Anbieter/Snapshot/Foto, drei Projektionen, Gastkarte/-liste, Leaflet lokal, seed_demo | umgesetzt; Gast-Requestlimits und Bildverarbeitung OFFEN (Etappe 3) |
-| 2 | Registrierung, E-Mail-Bestaetigung, E-Mail-/TOTP-Login | OFFEN (Pakete eingebunden, Ablauf nicht umgesetzt) |
+| 2 | Registrierung, E-Mail-Bestaetigung, E-Mail-/TOTP-Login, Sitzungsschutz, Passwortreset, atomarer Limiter | umgesetzt; offen: Faktorwechsel/E-Mail-Aenderung mit frischer Reauth, Benachrichtigungsmails, Recovery-Code-Nutzungsprotokoll (Etappe 4/6) |
 | 3 | Kontingente, Mitgliedsdetails, Bilder, Limits | OFFEN |
 | 4 | Meine Objekte, Redaktion, Administration | OFFEN |
 | 5 | swisstopo-Gateway, Budgets, Geokodierung | OFFEN |
@@ -46,11 +46,31 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-09 | Testsuite 52 Tests (Grundlagen, Geo/bbox, Freigabe/Versionen, Projektionen, Canary-Freiheit der Gastantworten, Kachelweg, Admin-OTP, 3 Playwright-Browsertests) | BESTANDEN |
 | 2026-11-09 | Browsertests 2x wiederholt (Stabilitaet) | BESTANDEN |
 | 2026-11-09 | Browsertest fand doppelte Punkteanfrage nach Kartenziehen (Nachkorrektur durch Traegheit/Grenze) | behoben, danach BESTANDEN |
+| 2026-11-09 | Etappe 2: Testsuite 96 Tests (u. a. E2E Registrierung->Verifikation->Passwort+E-Mail-Code und Passwort+TOTP inkl. Einrichtung; Codewiederverwendung, 5 Fehlversuche, Cooldown, parallele Challenges, SMTP-Ausfall ohne Fallback, Mailbudget, Admin nur mit zweitem Schritt, Reset ohne Login und ohne TOTP-Verlust, Axes-Sperre, Sitzungsablauf/-entzug, offene Redirects, CSRF, parallele Limiter-Reservierung und paralleler TOTP-Verbrauch mit echten DB-Verbindungen), 2x | BESTANDEN |
+| 2026-11-09 | Browsertest Registrierung->Bestaetigung->Login->E-Mail-Code-Einrichtung (Chromium) | BESTANDEN |
+| 2026-11-09 | Gefundene/behobene Fehler: Axes zaehlte Fehlversuche ohne Benutzernamen (Sperre griff nicht); Limiter-Deadlocks bei parallelem Bucket-Anlegen; `Referrer-Policy: no-referrer` fuehrte in Browsern zu `Origin: null` und CSRF-Ablehnung; Axes protokollierte E-Mail-Adressen | behoben, Tests BESTANDEN |
 | – | `check --deploy` mit Produktionssettings | OFFEN |
 | – | Apache/WSGI-End-to-End | BLOCKIERT (kein Hostingzugang, Profil unbestaetigt) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
 ## Entscheidungen
+
+- Login/Einrichtung: django-two-factor-auth-Views, abgeleitet und ergaenzt um Kontozustand
+  (nur aktive, E-Mail-bestaetigte Konten), sitzungsgebundene E-Mail-Challenges (`LoginChallenge`,
+  max. 5 Fehlversuche, neue Challenge ersetzt alte), Versandbudget vor jedem Code, atomaren
+  Codeverbrauch (`select_for_update` auf das Geraet) und Konto-/IP-Drosselung fuer Codeeingaben.
+  two_factor `profile`/`disable` sind nicht eingebunden (letzter Faktor nicht loeschbar).
+- Ohne Faktor fuehrt der Login immer in die Einrichtung (Passwort-only = Einrichtungszustand,
+  15 min Leerlauf / 60 min absolut, keine Mitgliedsrechte). Grenze: Wer das Passwort eines
+  Kontos ohne Faktor kennt, kann den ersten Faktor einrichten (dokumentiert, Auftrag 11.3).
+- Limiter: Ereignistabelle mit rollenden Fenstern, Sperrzeile je Schluessel, HMAC-pseudonymisiert,
+  fail closed. Startwerte in `RATE_LIMITS` (settings/base.py); Codeeingaben 10/15 min je Konto,
+  50/15 min je IP (eigene Werte).
+- E-Mail-Verifikation: signiertes Token (Konto, Adress-HMAC, Sicherheitsgeneration, Zweck,
+  Umgebung, 24 h). GET legt nur in die Sitzung und leitet auf tokenfreie URL; Bestaetigung per POST.
+- Sitzungen: `security_generation` beendet alle anderen Sitzungen bei Faktor-/Passwortreset/Sperre;
+  Leerlauf/Gesamtdauer Mitglieder 60 min/12 h, Arbeitsbereich 30 min/8 h.
+- Wiederherstellungscodes: two_factor-Seite (nur vollstaendig angemeldet) zeigt unbenutzte Codes.
 
 - Etappe 1 liefert unter `/map/tiles/{z}/{x}/{y}.jpeg` nur lokal erzeugte Testkacheln
   (`MAP_TILE_SOURCE=local_test`); kein Providerabruf, kein Direkt-Fallback. Zoomgrenzen 7-18

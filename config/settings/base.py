@@ -52,6 +52,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django_otp.middleware.OTPMiddleware",
+    "locations.middleware.AccountSecurityMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # django-axes muss als letzte Middleware stehen.
@@ -148,8 +149,9 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = False
-AXES_USERNAME_FORM_FIELD = "auth-username"
+AXES_USERNAME_CALLABLE = "locations.axes_helpers.axes_username"
 AXES_ENABLE_ACCESS_FAILURE_LOG = False
+AXES_VERBOSE = False  # keine E-Mail-Adressen in Logs
 AXES_SENSITIVE_PARAMETERS = ["password", "auth-password", "token", "otp_token"]
 
 DEFAULT_FROM_EMAIL = ENV.get("DEFAULT_FROM_EMAIL", "noreply@example.invalid")
@@ -176,6 +178,8 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
+    # django-axes protokolliert Benutzernamen (= E-Mail-Adressen): nur Fehler ausgeben.
+    "loggers": {"axes": {"handlers": ["console"], "level": "ERROR", "propagate": False}},
     "root": {"handlers": ["console"], "level": "WARNING"},
 }
 
@@ -183,3 +187,29 @@ LOGGING = {
 MAP_TILE_SOURCE = ENV.get("MAP_TILE_SOURCE", "local_test")  # local_test | swisstopo (Etappe 5)
 MAP_MIN_ZOOM = 7
 MAP_MAX_ZOOM = 18
+
+# Startwerte der Limits (Abschnitt 8), konfigurierbar; je Name Liste (max, Fenster in s).
+# Rollende Fenster, atomar in der DB (locations/rate_limits.py).
+_H, _D = 3600, 86400
+RATE_LIMITS = {
+    "register_ip": [(3, _H), (5, _D)],
+    "register_global": [(100, _D)],
+    "mail_recipient": [(5, _H), (15, _D)],
+    "mail_account": [(5, _H), (15, _D)],
+    "mail_purpose_recipient": [(1, 60)],
+    "mail_ip": [(30, _H), (100, _D)],
+    "mail_global": [(30, 60), (500, _D)],
+    "otp_attempt_account": [(10, 900)],
+    "otp_attempt_ip": [(50, 900)],
+    "reset_request_ip": [(10, _H)],
+    "verify_resend_ip": [(10, _H)],
+}
+
+# E-Mail-Verifikation und Login-Codes
+EMAIL_VERIFICATION_MAX_AGE = ENV.get_int("EMAIL_VERIFICATION_MAX_AGE_HOURS", 24) * 3600
+PENDING_REGISTRATION_RETENTION_DAYS = 7
+LOGIN_CHALLENGE_MAX_ATTEMPTS = 5
+TWO_FACTOR_LOGIN_TIMEOUT = 600
+PASSWORD_RESET_TIMEOUT = 3600
+OTP_EMAIL_SENDER = DEFAULT_FROM_EMAIL  # production.py setzt beides neu
+OTP_EMAIL_BODY_TEMPLATE_PATH = "emails/login_code.txt"

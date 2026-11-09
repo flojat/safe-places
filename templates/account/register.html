@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Registrieren · Adresskarte{% endblock %}
+{% block content %}
+<section class="auth">
+  <h1>Registrieren</h1>
+  <p>Für Interessenten: Sie benötigen nur E-Mail-Adresse und Passwort. Nach der Bestätigung Ihrer E-Mail-Adresse richten Sie beim ersten Login einen zweiten Anmeldeschritt ein.</p>
+  <form method="post" novalidate>{% csrf_token %}{{ form.as_div }}<button type="submit">Registrieren</button></form>
+  <p class="muted">Eine Registrierung verleiht keine Rechte zur Objektbetreuung oder Redaktion.</p>
+</section>
+{% endblock %}

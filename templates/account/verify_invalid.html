@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>Link ungültig</h1>
+  <p>Dieser Bestätigungslink ist ungültig, abgelaufen oder wurde bereits verwendet.</p>
+  <p><a href="{% url 'account:resend_verification' %}">Neue Bestätigungsmail anfordern</a></p>
+</section>
+{% endblock %}

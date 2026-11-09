@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>Zu viele Anfragen</h1>
+  <p>Bitte versuchen Sie es in etwa {{ retry_minutes }} Minute{{ retry_minutes|pluralize:"n" }} erneut.</p>
+</section>
+{% endblock %}

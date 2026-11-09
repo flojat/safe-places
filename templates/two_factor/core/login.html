@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Anmelden · Adresskarte{% endblock %}
+{% block content %}
+<section class="auth">
+  <h1>Anmelden</h1>
+  {% if wizard.steps.current == 'auth' %}
+    <p>Melden Sie sich mit E-Mail-Adresse und Passwort an. Danach folgt immer ein zweiter Schritt.</p>
+  {% elif wizard.steps.current == 'token' %}
+    {% if device_kind == 'email' %}
+      {% if challenge_result and not challenge_result.sent %}
+        {% if challenge_result.reason == 'cooldown' %}
+          <p class="notice">Ein Code wurde soeben gesendet. Ein neuer Code kann erst nach einer Minute angefordert werden.</p>
+        {% else %}
+          <p class="error">Der Code konnte derzeit nicht gesendet werden. Bitte versuchen Sie es später erneut. Ohne Code ist keine Anmeldung möglich.</p>
+        {% endif %}
+      {% else %}
+        <p>Wir haben einen Code an Ihre bestätigte E-Mail-Adresse gesendet. Er ist 5 Minuten gültig.</p>
+      {% endif %}
+    {% else %}
+      <p>Geben Sie den aktuellen Code aus Ihrer Authenticator-App ein.</p>
+    {% endif %}
+  {% elif wizard.steps.current == 'backup' %}
+    <p>Geben Sie einen Ihrer einmaligen Wiederherstellungscodes ein.</p>
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ wizard.management_form }}
+    {{ wizard.form.as_div }}
+    <div class="actions">
+      <button type="submit">Weiter</button>
+      {% if wizard.steps.current == 'token' and device_kind == 'email' %}
+        <button type="submit" name="challenge_device" value="{{ device.persistent_id }}" class="secondary">Neuen Code senden</button>
+      {% endif %}
+      {% if wizard.steps.current != 'auth' %}
+        <button type="submit" name="wizard_goto_step" value="auth" class="secondary">Abbrechen</button>
+      {% endif %}
+    </div>
+  </form>
+  {% if wizard.steps.current == 'token' and backup_tokens %}
+    <form method="post">{% csrf_token %}
+      <button type="submit" name="wizard_goto_step" value="backup" class="link-button">Wiederherstellungscode verwenden</button>
+    </form>
+  {% endif %}
+  {% if wizard.steps.current == 'auth' %}
+    <p><a href="{% url 'account:register' %}">Registrieren</a> · <a href="{% url 'account:password_reset' %}">Passwort vergessen?</a> · <a href="{% url 'account:resend_verification' %}">Bestätigungsmail erneut senden</a></p>
+  {% endif %}
+</section>
+{% endblock %}

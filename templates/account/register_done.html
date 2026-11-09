@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>Bitte E-Mail prüfen</h1>
+  <p>Falls mit dieser Adresse eine Registrierung möglich ist, erhalten Sie in Kürze eine E-Mail mit einem Bestätigungslink. Der Link ist 24 Stunden gültig.</p>
+  <p>Kommt keine E-Mail an, prüfen Sie den Spam-Ordner oder <a href="{% url 'account:resend_verification' %}">fordern Sie in einigen Minuten eine neue an</a>.</p>
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Wiederherstellungscodes · Adresskarte{% endblock %}
+{% block content %}
+<section class="auth">
+  <h1>Wiederherstellungscodes</h1>
+  <p>Jeder Code funktioniert genau einmal, falls Ihr zweiter Faktor nicht verfügbar ist. Bewahren Sie die Codes sicher auf. Diese Seite zeigt Ihre noch unbenutzten Codes nur in Ihrer vollständig angemeldeten Sitzung an.</p>
+  {% if device.token_set.count %}
+    <ul class="codes">{% for token in device.token_set.all %}<li><code>{{ token.token }}</code></li>{% endfor %}</ul>
+    <p class="muted">Neue Codes erzeugen macht alle bisherigen ungültig.</p>
+  {% else %}
+    <p>Sie haben noch keine Wiederherstellungscodes.</p>
+  {% endif %}
+  <form method="post">{% csrf_token %}{{ form.as_div }}<button type="submit">Neue Codes erzeugen</button></form>
+  <p><a href="{% url 'account:home' %}">Zurück zum Konto</a></p>
+</section>
+{% endblock %}

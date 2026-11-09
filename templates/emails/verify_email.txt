@@ -1,0 +1,8 @@
+Guten Tag
+
+Bitte bestätigen Sie Ihre Registrierung bei der Adresskarte (Prototyp):
+
+{{ link }}
+
+Der Link ist {{ hours }} Stunden gültig. Auf der Seite bestätigen Sie mit einem Klick.
+Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren.

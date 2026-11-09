@@ -343,3 +343,50 @@ class AuditEvent(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["target_type", "target_id"])]
+
+
+# ---------------------------------------------------------------------------
+# Etappe 2: Atomare Limits und an die Sitzung gebundene Login-Challenges
+# ---------------------------------------------------------------------------
+
+
+class RateBucket(models.Model):
+    """Sperrzeile je (Bereich, pseudonymisierter Schluessel) fuer atomare Limits."""
+
+    scope = models.CharField(max_length=40)
+    key = models.CharField(max_length=64)  # HMAC, keine Klartext-IP/-Adresse
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["scope", "key"], name="ratebucket_unique")]
+
+
+class RateEvent(models.Model):
+    """Einzelereignis fuer rollende Zeitfenster. Bereinigung nach 48 h."""
+
+    bucket = models.ForeignKey(RateBucket, on_delete=models.CASCADE, related_name="events")
+    created_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["bucket", "created_at"])]
+
+
+class LoginChallenge(models.Model):
+    """Bindet einen versendeten E-Mail-Code an Konto, Zweck und Browsersitzung."""
+
+    class State(models.TextChoices):
+        ACTIVE = "active", "Aktiv"
+        SUPERSEDED = "superseded", "Ersetzt"
+        CONSUMED = "consumed", "Verbraucht"
+        FAILED = "failed", "Fehlgeschlagen"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    purpose = models.CharField(max_length=16)
+    nonce_hash = models.CharField(max_length=64)
+    state = models.CharField(max_length=12, choices=State.choices, default=State.ACTIVE)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "state"])]

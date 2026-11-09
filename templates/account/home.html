@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Mein Konto · Adresskarte{% endblock %}
+{% block content %}
+<section class="auth">
+  <h1>Mein Konto</h1>
+  <dl class="facts">
+    <dt>E-Mail</dt><dd>{{ user.email }}{% if user.email_verified_at %} (bestätigt){% else %} (nicht bestätigt){% endif %}</dd>
+    <dt>Anmeldestatus</dt>
+    <dd>{% if state == 'fully_verified' %}Vollständig angemeldet{% elif state == 'password_verified_mfa_pending' %}Zweiter Schritt fehlt{% else %}Nicht aktiviert{% endif %}</dd>
+    <dt>Zweiter Schritt</dt>
+    <dd>{% for d in devices %}{{ d.type }}{% if not forloop.last %}, {% endif %}{% empty %}nicht eingerichtet{% endfor %}</dd>
+  </dl>
+  {% if state == 'password_verified_mfa_pending' %}
+    <p><a href="{% url 'two_factor:setup' %}">Zweiten Anmeldeschritt einrichten</a></p>
+  {% elif state == 'fully_verified' %}
+    <p><a href="{% url 'two_factor:backup_tokens' %}">Wiederherstellungscodes</a> ({{ backup_count }} unbenutzt)</p>
+  {% endif %}
+</section>
+{% endblock %}

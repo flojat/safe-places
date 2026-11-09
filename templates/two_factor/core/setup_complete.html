@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Eingerichtet · Adresskarte{% endblock %}
+{% block content %}
+<section class="auth">
+  <h1>Zweiter Anmeldeschritt eingerichtet</h1>
+  <p>Ihre Anmeldung ist jetzt vollständig. Bei jeder neuen Anmeldung wird der zweite Schritt erneut verlangt.</p>
+  <p>Empfehlung: Erzeugen Sie <a href="{% url 'two_factor:backup_tokens' %}">einmalige Wiederherstellungscodes</a> und bewahren Sie sie sicher auf.</p>
+  <p><a href="{% url 'locations:home' %}">Zur Übersicht</a> · <a href="{% url 'account:home' %}">Mein Konto</a></p>
+</section>
+{% endblock %}

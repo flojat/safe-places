@@ -14,9 +14,10 @@
     <span class="demo-badge">Prototyp · Demodaten, keine realen Angebote</span>
     <nav class="site-nav">
       {% if user.is_authenticated %}
-        <span class="muted">{{ user.email }}</span>
-        <form method="post" action="{% url 'two_factor:logout' %}" class="inline-form">{% csrf_token %}<button type="submit" class="link-button">Abmelden</button></form>
+        <a href="{% url 'account:home' %}">Mein Konto</a>
+        <form method="post" action="{% url 'account:logout' %}" class="inline-form">{% csrf_token %}<button type="submit" class="link-button">Abmelden</button></form>
       {% else %}
+        <a href="{% url 'account:register' %}">Registrieren</a>
         <a href="{% url 'two_factor:login' %}?next={{ request.get_full_path|urlencode }}">Anmelden</a>
       {% endif %}
     </nav>

@@ -41,3 +41,4 @@ if not (EMAIL_USE_TLS or EMAIL_USE_SSL):
     raise ImproperlyConfigured("SMTP ohne TLS ist nicht zulaessig.")
 DEFAULT_FROM_EMAIL = ENV.require("DEFAULT_FROM_EMAIL")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+OTP_EMAIL_SENDER = DEFAULT_FROM_EMAIL

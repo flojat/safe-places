@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>Bestätigungsmail erneut senden</h1>
+  <form method="post" novalidate>{% csrf_token %}{{ form.as_div }}<button type="submit">Senden</button></form>
+</section>
+{% endblock %}

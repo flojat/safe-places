@@ -35,6 +35,12 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 - `locations/projections.py`: GAST-/MITGLIED-Feldlisten; Besucherausgaben nur hierueber.
 - `locations/services/publishing.py`: submit/publish/withdraw atomar mit Versionsvergleich.
 - `locations/views.py`: Gastseite, `/api/punkte`, `/api/liste`, `/objekt/<id>/`, `/map/tiles/...`.
+- `locations/auth_flows.py`: Registrierung, E-Mail-Verifikationstoken, E-Mail-Challenges, Generationswechsel.
+- `locations/account_views.py`: abgeleitete two_factor-Login/Setup-Views mit Schutzmixin, Konto, Reset.
+- `locations/rate_limits.py`: atomarer DB-Limiter (`reserve`, `configured`); `services/security_mail.py`: Mailbudget.
+- `locations/permissions.py`: Anmeldezustaende und `fully_verified_required`; `middleware.py`: Sitzungsschutz.
+- Wartung: `manage.py cleanup_security_state` (per Hosting-Cron).
+- Testhilfen fuer echte Login-Ablaeufe: `locations/tests/helpers_auth.py`.
 - Tests markieren interne Werte mit `CANARY-`, Mitgliedswerte mit `MITGLIEDERDETAIL-`.
 
 ## Sicherheitsregeln fuer die Weiterarbeit

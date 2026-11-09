@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>E-Mail-Adresse bestätigen</h1>
+  <p>Bitte bestätigen Sie mit einem Klick, dass Sie diese Registrierung ausgelöst haben.</p>
+  <form method="post">{% csrf_token %}<button type="submit">E-Mail-Adresse bestätigen</button></form>
+</section>
+{% endblock %}

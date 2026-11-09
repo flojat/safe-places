@@ -1,0 +1,8 @@
+Guten Tag
+
+Ihr Code für den zweiten Anmeldeschritt lautet:
+
+{{ token }}
+
+Der Code ist 5 Minuten gültig und funktioniert nur in der Browsersitzung, in der Sie ihn angefordert haben.
+Falls Sie sich nicht gerade anmelden, ändern Sie bitte Ihr Passwort.

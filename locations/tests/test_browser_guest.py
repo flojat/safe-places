@@ -113,3 +113,72 @@ class GuestBrowserTests(StaticLiveServerTestCase):
         self.assertTrue(any("/map/tiles/" in u for u in requests))
         page.click("#show-list")
         self.assertTrue(page.is_visible("#results"))
+
+
+@unittest.skipIf(sync_playwright is None, "BLOCKIERT: Playwright nicht installiert")
+class AuthBrowserTests(StaticLiveServerTestCase):
+    """Echter Browserablauf: Registrierung, Bestaetigung, Login, E-Mail-Code-Einrichtung."""
+
+    host = "127.0.0.1"
+
+    @classmethod
+    def setUpClass(cls):
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+        super().setUpClass()
+        cls.pw = sync_playwright().start()
+        cls.browser = cls.pw.chromium.launch()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.pw.stop()
+        super().tearDownClass()
+
+    def test_register_verify_login_and_email_code_setup(self):
+        import re
+
+        from django.core import mail
+
+        from . import helpers_auth as h
+
+        shots = os.environ.get("ADRESSKARTE_SCREENSHOT_DIR")
+        ctx = self.browser.new_context(viewport={"width": 1100, "height": 800})
+        self.addCleanup(ctx.close)
+        page = ctx.new_page()
+        password = h.random_password()
+        base = self.live_server_url
+
+        page.goto(base + "/konto/registrieren/")
+        page.fill("#id_email", "browser@example.org")
+        page.fill("#id_password1", password)
+        page.fill("#id_password2", password)
+        page.click("button[type=submit]")
+        page.wait_for_selector("text=Bitte E-Mail prüfen")
+
+        link = re.search(r"https?://\S+", mail.outbox[-1].body).group(0)
+        page.goto(link)
+        self.assertNotIn("email-bestaetigen/" + link.rsplit("/", 2)[-2], page.url)  # tokenfreie URL
+        page.click("button:has-text('E-Mail-Adresse bestätigen')")
+        page.wait_for_selector("text=E-Mail-Adresse bestätigt")
+
+        page.goto(base + "/konto/anmelden/")
+        if shots:
+            page.screenshot(path=f"{shots}/login.png")
+        page.fill("input[name='auth-username']", "browser@example.org")
+        page.fill("input[name='auth-password']", password)
+        page.get_by_role("button", name="Weiter", exact=True).click()
+        page.wait_for_selector("text=Zweiten Anmeldeschritt einrichten")
+        page.get_by_role("button", name="Weiter", exact=True).click()  # Willkommen
+        if shots:
+            page.screenshot(path=f"{shots}/setup_method.png")
+        page.check("input[value='email']")
+        page.get_by_role("button", name="Weiter", exact=True).click()
+        page.wait_for_selector("text=Wir haben einen Code")
+        code = re.search(r"^\s*(\d{6})\s*$", mail.outbox[-1].body, re.M).group(1)
+        page.fill("input[name='validation-token']", code)
+        page.get_by_role("button", name="Weiter", exact=True).click()
+        page.wait_for_selector("text=Zweiter Anmeldeschritt eingerichtet")
+        page.goto(base + "/konto/")
+        self.assertIn("Vollständig angemeldet", page.content())
+        if shots:
+            page.screenshot(path=f"{shots}/account.png")
