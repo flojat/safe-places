@@ -241,6 +241,42 @@ class DeployTests(SimpleTestCase):
         self.assertEqual(codes["UNSAFE_ARCHIVE"].status, "FAIL")
         self.assertFalse((self.home / "current").exists())
 
+    def test_old_python_fallback_extracts_safely(self):
+        self._hosting()
+        with mock.patch.object(mi, "_HAS_TAR_FILTER", False):
+            self._deploy()
+            report, codes = self._deploy("--apply")
+        self.assertEqual(codes["ACTIVATED"].status, "PASS")
+        self.assertTrue((self.home / "current" / "app" / "migrations" / "0001_initial.py").is_file())
+
+    def test_old_python_fallback_rejects_outside_symlink(self):
+        self._hosting()
+        os.symlink("/etc/passwd", self.repo / "evil")
+        git(self.repo, "add", "evil")
+        git(self.repo, "commit", "-qm", "evil")
+        with mock.patch.object(mi, "_HAS_TAR_FILTER", False):
+            self._deploy(ref="main")
+            report, codes = self._deploy("--apply", ref="main")
+        self.assertEqual(codes["UNSAFE_ARCHIVE"].status, "FAIL")
+
+    def test_checked_members_rejects_traversal_and_links(self):
+        import io as _io
+        import tarfile as _tarfile
+
+        for kind in ("dotdot", "absolute", "hardlink", "device"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as d:
+                buf = _io.BytesIO()
+                with _tarfile.open(fileobj=buf, mode="w") as tar:
+                    info = _tarfile.TarInfo({"dotdot": "../x", "absolute": "/tmp/x"}.get(kind, "x"))
+                    if kind == "hardlink":
+                        info.type, info.linkname = _tarfile.LNKTYPE, "/etc/passwd"
+                    elif kind == "device":
+                        info.type = _tarfile.CHRTYPE
+                    tar.addfile(info, _io.BytesIO(b"") if info.isfile() else None)
+                buf.seek(0)
+                with _tarfile.open(fileobj=buf) as tar, self.assertRaises(_tarfile.TarError):
+                    mi._checked_members(tar, Path(d))
+
     def test_failed_reload_relinks_previous_release(self):
         self._hosting()
         self._deploy()

@@ -504,6 +504,41 @@ class DeployLock:
         self.handle.close()
 
 
+_HAS_TAR_FILTER = hasattr(tarfile, "data_filter")  # Python >= 3.12 bzw. 3.11.4
+
+
+def _checked_members(tar: tarfile.TarFile, dest: Path) -> list[tarfile.TarInfo]:
+    """Ersatz fuer filter="data" auf aelteren Pythons (z. B. Debian 3.11.2).
+
+    Erlaubt nur regulaere Dateien, Verzeichnisse und relative Symlinks innerhalb des Ziels;
+    lehnt absolute Pfade, "..", Hardlinks und Geraete ab; entfernt setuid/setgid und
+    Schreibrechte fuer Gruppe/Andere.
+    """
+    root = dest.resolve()
+    members = []
+    for member in tar.getmembers():
+        name = member.name
+        if name.startswith(("/", "\\")) or ".." in Path(name).parts or ":" in Path(name).parts[0]:
+            raise tarfile.TarError("Pfad ausserhalb des Ziels")
+        target = (root / name).resolve()
+        if target != root and root not in target.parents:
+            raise tarfile.TarError("Pfad ausserhalb des Ziels")
+        if member.islnk() or member.ischr() or member.isblk() or member.isfifo() or member.isdev():
+            raise tarfile.TarError("Unerlaubter Eintragstyp")
+        if member.issym():
+            link = member.linkname
+            if link.startswith("/") or (root not in ((root / name).parent / link).resolve().parents
+                                        and ((root / name).parent / link).resolve() != root):
+                raise tarfile.TarError("Symlink ausserhalb des Ziels")
+        elif not (member.isfile() or member.isdir()):
+            raise tarfile.TarError("Unerlaubter Eintragstyp")
+        member.mode &= 0o755
+        member.uid = member.gid = 0
+        member.uname = member.gname = ""
+        members.append(member)
+    return members
+
+
 def export_release(repository: Path, commit: str, target: Path) -> None:
     """git archive (keine Hooks, keine Submodule) und sicheres Entpacken (filter=data)."""
     if target.exists():
@@ -520,7 +555,10 @@ def export_release(repository: Path, commit: str, target: Path) -> None:
         extract.mkdir()
         try:
             with tarfile.open(archive) as tar:
-                tar.extractall(extract, filter="data")  # verhindert Pfad-/Symlinkausbruch
+                if _HAS_TAR_FILTER:
+                    tar.extractall(extract, filter="data")  # verhindert Pfad-/Symlinkausbruch
+                else:
+                    tar.extractall(extract, members=_checked_members(tar, extract), numeric_owner=False)
         except (tarfile.TarError, OSError) as exc:
             raise DeployError("UNSAFE_ARCHIVE", f"Archiv abgelehnt ({type(exc).__name__})",
                               "Repository-Inhalt pruefen (Links/Pfade ausserhalb des Releases)")
