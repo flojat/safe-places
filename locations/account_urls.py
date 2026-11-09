@@ -18,6 +18,7 @@ urlpatterns = [
     path("email-aendern/<str:token>/", v.email_change_token, name="email_change_token"),
     path("aktivieren/", v.activate, name="activate"),
     path("aktivieren/<str:token>/", v.activate_token, name="activate_token"),
+    path("faktor-entfernen/", v.remove_factor, name="remove_factor"),
     path("abmelden/", v.LogoutView.as_view(), name="logout"),
     path("passwort-vergessen/", v.PasswordResetView.as_view(), name="password_reset"),
     path("passwort-vergessen/gesendet/",

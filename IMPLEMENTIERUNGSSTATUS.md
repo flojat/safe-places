@@ -30,7 +30,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 4 | Betreuerportal, Redaktion (Fassungsvergleich/Freigabe/Zurueckweisung), Administration (Rollen/Sperren), frische Bestaetigung, E-Mail-Aenderung | umgesetzt; offen: Benachrichtigung bei Faktoraenderung/Recovery-Code-Nutzung per Mail, zusaetzlichen Faktor nachtraeglich einrichten, administrativer Recovery-Prozess (Etappe 6/7) |
 | 5 | swisstopo-Gateway mit Cache/Generationen, globale Provider-Budgets und Slots, cacheUpdate-Pruefung, Adresssuche im Arbeitsbereich | umgesetzt (gemockt getestet); echter Smoke-Test BLOCKIERT bis Freigabe; lokal weiterhin `MAP_TILE_SOURCE=local_test` |
 | 6 | Initialkonten (Provisionierung, Einladung, Aktivierung, Rollen nach zweitem Schritt), Installations-/Pruef-/Deploy-/Rollback-Routine, Hosting-Vorlagen | umgesetzt; echte Apache/WSGI- und SMTP-Pruefung BLOCKIERT (kein Hostingzugang) |
-| 7 | Konkurrenz-/Browsertests, Dokumentation | OFFEN |
+| 7 | Zusatzfaktor/Faktorentfernung, Sicherheitsbenachrichtigungen, Admin-Wiederherstellung, Routenpruefung, Restore-Test, vollstaendige Dokumentation | umgesetzt |
 
 ## Tatsaechlich ausgefuehrte Pruefungen
 
@@ -69,6 +69,10 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-09 | Gefunden/behoben: Testsettings uebernahmen `MAP_TILE_SOURCE` aus der lokalen .env (Netzsperre griff, keine Abrufe); Testsettings fixieren jetzt Kartenquelle und Registrierungssperre | behoben |
 | 2026-11-09 | Lokale Initialkonten aus privatem Manifest provisioniert (4x create) und Einladungen in die lokale Datei-Mailablage versendet (keine echte Zustellung); Status invited | erledigt |
 | 2026-11-09 | Gefunden/behoben: lokale Mailablage war 0755 (Einladungslinks fuer andere Benutzer lesbar) -> 0700, local.py erzwingt 0700, `doctor` warnt bei Gruppen-/Fremdzugriff | behoben |
+| 2026-11-09 | Etappe 7: 10 Tests (Zusatzfaktor nur mit Reauth und nur fehlende Methode, Login-Alternative nur nach ausdruecklicher Einrichtung, letzter Faktor nicht entfernbar, Entfernen mit Reauth/Abmeldung/Mail, Backup-Code einmalig + protokolliert + gemeldet, Admin-Wiederherstellung mit Reauth/Identitaetsbestaetigung ohne Passwortkenntnis, Redaktion ohne Wiederherstellung, Routenpruefung aller Nicht-Admin-Wege GET/POST fuer Anonyme und Passwort-only-Superuser, Einrichtungszustand ohne Mitgliedsdaten) | BESTANDEN |
+| 2026-11-09 | Gefunden/behoben: `SetupView` sperrte vorhandene Faktoren nur bei GET – per POST waere ohne Reauth ein weiterer Faktor einrichtbar gewesen; Methodenauswahl jetzt auf verfuegbare Methoden beschraenkt | behoben |
+| 2026-11-09 | Gesamtsuite 229 Tests, 2x | BESTANDEN |
+| 2026-11-09 | Restore-Test: Dump Dev-DB -> isolierte Wegwerf-DB, 32 Tabellen ohne Pruefsummenabweichung, Zeilen identisch; 204 Mediendateien hashgleich; danach geloescht | BESTANDEN |
 | – | Apache/WSGI-End-to-End auf Zielhosting | BLOCKIERT (kein Hostingzugang) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
@@ -147,3 +151,31 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 - Testdatenbank wird direkt genutzt (`TEST.NAME` = bereitgestellte Test-DB, `--keepdb`);
   Testkonto hat zusaetzlich nur Rechte auf `<testdb>_%` fuer parallele Klone.
 - Lokale Mail: Datei-Backend in `var/private_mail`; kein Console-Backend.
+
+
+## Abnahme lokaler Prototyp (Auftrag 14)
+
+| Kriterium | Stand |
+|---|---|
+| Startet dokumentiert lokal mit MariaDB, 100 Demos, 90 Vorschauen in synchroner Karte/Liste | erfuellt (Tests + Browsertests) |
+| Gaeste suchen begrenzt, ohne Mitgliederkontakte/Langdetails | erfuellt |
+| Selbst registrierter Besucher sieht nach Verifikation und Passwort + E-Mail-Code ODER TOTP Details/Kontakte | erfuellt (E2E beider Wege, Browser) |
+| Alle Rollen mit demselben verpflichtenden zweiten Schritt, kein Admin-/Setup-/Reset-/API-Bypass | erfuellt (Routenpruefung, Admin-, Reset-, Setup-Tests) |
+| Kontingente kontoweit und atomar; unbefugte Fotos/Details nicht ausgeliefert; Wiederabruf funktioniert | erfuellt (inkl. Parallelitaet) |
+| Betreuer erfassen/einreichen, Redaktion prueft/freigibt, Administration verwaltet ohne Budgetumgehung | erfuellt |
+| Entwuerfe intern; Rueckzug/Rechteentzug stoppen neue Zugriffe sofort | erfuellt |
+| swisstopo- und Mailbudgets auch bei mehreren Workern; kein offener Proxy, kein Direkt-Fallback, kein Mailrelay | erfuellt (gemockt, parallel); 1 freigegebener Smoke-Test |
+| Kernpruefungen wirklich ausgefuehrt, Blockaden benannt, lokaler Mailtest vs. echte Zustellung dokumentiert | erfuellt |
+| Vier Initialkonten bereitstellbar, selbst Passwort und Methode, Wiederholung/Kollision/Deployment ohne Rechte-/Sicherheitsresets | erfuellt (lokal provisioniert, Aktivierung durch Betreiber ausstehend) |
+| Projektlokale Installation und lesende Pruefung; Git-Deployment/Releasewechsel mit Fehler-/Rueckfalllogik in isolierter Umgebung geprueft | erfuellt (temporaeres app-home) |
+
+## Vor einer Produktionsfreigabe zwingend offen
+
+1. Hosting: bestaetigte WSGI-Anbindung (mod_wsgi/Passenger) mit passendem Python, App-Reload, private Verzeichnisse,
+   Shell/Git, MariaDB-Konto; echter Webrequest gegen das Release (docs/HOSTING_CHECK.md).
+2. HTTPS, danach HSTS; Content-Security-Policy per Apache-Header.
+3. Echter SMTP-Dienst mit TLS, Zustellbarkeitstest an freigegebenen Testempfaenger.
+4. Restore auf dem Zielhosting testen; Backup-Plan mit Betreiber.
+5. swisstopo: Proxy-/Cache-Integration und erwarteter Gesamtverkehr gegen die Bedingungen pruefen bzw. mit swisstopo klaeren.
+6. Limits bei normaler Bedienung messen und festlegen; Netzwerk-/DDoS-Schutz separat.
+7. Aktivierung der Initialkonten durch die Personen selbst auf der Zielinstanz; Betreiberentscheid zum Go-live.

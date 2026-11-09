@@ -20,6 +20,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core import signing
 from django.db import IntegrityError, transaction
+from django.db.models import F
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
@@ -288,3 +289,39 @@ def admin_ready() -> bool:
 def status_report() -> dict:
     """Teilbarer Bericht: nur Rollen und Zustaende, keine Adressen."""
     return {r.target_role: r.state for r in InitialAccount.objects.order_by("target_role")}
+
+
+def admin_recovery(target, actor, request) -> None:
+    """Dokumentierter Wiederherstellungsweg (Auftrag 8): nach Identitaetspruefung durch die
+    Administration. Entfernt alle zweiten Faktoren und Wiederherstellungscodes, beendet alle
+    Sitzungen und verlangt eine erneute Bestaetigung der E-Mail-Adresse; danach regulaerer Login
+    und neue Faktorwahl. Administration erfaehrt keine Geheimnisse; Passwort bleibt unbekannt.
+    Rollen bleiben hinterlegt, wirken aber erst wieder mit vollstaendig verifizierter Sitzung.
+    """
+    from django_otp.plugins.otp_email.models import EmailDevice
+    from django_otp.plugins.otp_static.models import StaticDevice
+    from django_otp.plugins.otp_totp.models import TOTPDevice
+
+    from . import auth_flows
+    from .notifications import notify
+
+    User = get_user_model()
+    if target.pk == actor.pk:
+        raise ValueError("Eigenes Konto nicht ueber diesen Weg")
+    notify(target, "admin_recovery", request)  # an die bisher verifizierte Adresse
+    with transaction.atomic():
+        locked = User.objects.select_for_update().get(pk=target.pk)
+        for model in (TOTPDevice, EmailDevice, StaticDevice):
+            model.objects.filter(user=locked).delete()
+        User.objects.filter(pk=locked.pk).update(
+            state=User.State.PENDING_EMAIL, email_verified_at=None, is_active=True,
+            security_generation=F("security_generation") + 1,
+        )
+        AuditEvent.objects.create(actor=actor, action="admin_recovery", target_type="user",
+                                  target_id=str(locked.pk))
+    locked.refresh_from_db()
+    try:
+        auth_flows.send_verification_mail(locked, request)
+    except security_mail.MailBudgetExceeded:
+        pass
+

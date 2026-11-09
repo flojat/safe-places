@@ -73,26 +73,38 @@ class ReauthForm(forms.Form):
         if authenticate(self.request, username=user.email, password=data.get("password", "")) != user:
             raise ValidationError("Passwort oder Code ungueltig.")
         token = (data.get("otp_token") or "").strip()
+        matched = None
         for device in devices_for_user(user):
-            with transaction.atomic():
-                locked = type(device).objects.select_for_update().get(pk=device.pk)
-                if isinstance(locked, EmailDevice):
-                    try:
-                        challenge = auth_flows.lock_active_challenge(self.request, user, "reauth")
-                    except auth_flows.ChallengeInvalid:
-                        continue
-                    if locked.verify_token(token):
-                        challenge.state = challenge.State.CONSUMED
-                        challenge.save(update_fields=["state"])
-                        return data
-                    challenge.attempts += 1
-                    challenge.save(update_fields=["attempts"])
-                elif locked.verify_token(token):
-                    if isinstance(locked, StaticDevice):
-                        AuditEvent.objects.create(actor=user, action="backup_code_used", target_type="user",
-                                                  target_id=str(user.pk), detail="reauth")
-                    return data
-        raise ValidationError("Passwort oder Code ungueltig.")
+            if self._verify_locked(device, user, token):
+                matched = device
+                break
+        if matched is None:
+            raise ValidationError("Passwort oder Code ungueltig.")
+        if isinstance(matched, StaticDevice):  # nach der Transaktion benachrichtigen
+            from .notifications import notify
+
+            AuditEvent.objects.create(actor=user, action="backup_code_used", target_type="user",
+                                      target_id=str(user.pk), detail="reauth")
+            notify(user, "backup_code_used", self.request)
+        return data
+
+    def _verify_locked(self, device, user, token: str) -> bool:
+        """Prueft einen Code atomar am gesperrten Geraet (kein paralleler Doppelverbrauch)."""
+        with transaction.atomic():
+            locked = type(device).objects.select_for_update().get(pk=device.pk)
+            if not isinstance(locked, EmailDevice):
+                return locked.verify_token(token)
+            try:
+                challenge = auth_flows.lock_active_challenge(self.request, user, "reauth")
+            except auth_flows.ChallengeInvalid:
+                return False
+            ok = locked.verify_token(token)
+            if ok:
+                challenge.state = challenge.State.CONSUMED
+            else:
+                challenge.attempts += 1
+            challenge.save(update_fields=["state", "attempts"])
+            return ok
 
 
 @never_cache

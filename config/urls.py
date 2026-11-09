@@ -17,6 +17,7 @@ two_factor_patterns = ([
     path("zweiter-schritt/qr/", av.QRGeneratorView.as_view(), name="qr"),
     path("zweiter-schritt/fertig/", av.SetupCompleteView.as_view(), name="setup_complete"),
     path("zweiter-schritt/wiederherstellungscodes/", av.BackupTokensView.as_view(), name="backup_tokens"),
+    path("zweiter-schritt/hinzufuegen/", av.AddFactorView.as_view(), name="add_factor"),
 ], "two_factor")
 
 # Bewusst kein static(MEDIA_URL, ...): private Medien nur ueber kontrollierte Views.

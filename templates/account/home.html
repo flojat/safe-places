@@ -3,6 +3,7 @@
 {% block content %}
 <section class="auth">
   <h1>Mein Konto</h1>
+  {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
   <dl class="facts">
     <dt>E-Mail</dt><dd>{{ user.email }}{% if user.email_verified_at %} (bestätigt){% else %} (nicht bestätigt){% endif %}</dd>
     <dt>Anmeldestatus</dt>
@@ -16,6 +17,13 @@
   {% elif state == 'fully_verified' %}
     <p><a href="{% url 'two_factor:backup_tokens' %}">Wiederherstellungscodes</a> ({{ backup_count }} unbenutzt)</p>
     <p><a href="{% url 'account:email_change' %}">E-Mail-Adresse ändern</a></p>
+    {% if devices|length < 2 %}<p><a href="{% url 'two_factor:add_factor' %}">Weitere Anmeldemethode hinzufügen</a> (optional; nur auf Ihren ausdrücklichen Wunsch)</p>{% endif %}
+    {% for d in devices %}{% if devices|length > 1 and d.kind %}
+      <form method="post" action="{% url 'account:remove_factor' %}" class="inline-form">{% csrf_token %}
+        <input type="hidden" name="kind" value="{{ d.kind }}">
+        <button type="submit" class="link-button">{{ d.type }} entfernen</button>
+      </form>
+    {% endif %}{% endfor %}
     {% if user.pending_email %}<p class="muted">Eine Adressänderung wartet auf Bestätigung über den Link an die neue Adresse.</p>{% endif %}
   {% endif %}
 </section>

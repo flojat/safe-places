@@ -113,6 +113,10 @@ class GuardedTokenMixin:
                 result = verify()
             except ValidationError as exc:
                 error = exc
+            used_backup = error is None and isinstance(self, BackupTokenForm)
+            if used_backup:
+                AuditEvent.objects.create(actor=user, action="backup_code_used", target_type="user",
+                                          target_id=str(user.pk), detail=self.challenge_purpose)
             if challenge is not None:
                 if error is None:
                     challenge.state = challenge.State.CONSUMED
@@ -122,6 +126,10 @@ class GuardedTokenMixin:
                 challenge.save(update_fields=["state", "attempts"])
         if error is not None:
             raise ValidationError(GENERIC_CODE_ERROR)
+        if used_backup:  # nach der Transaktion, ohne offene DB-Sperren
+            from .notifications import notify
+
+            notify(user, "backup_code_used", self.request)
         return result
 
     def clean(self):
@@ -216,6 +224,10 @@ class SetupView(tf_core.SetupView):
             return redirect("two_factor:login")
         if state == "pending_email":
             return render(request, "account/not_activated.html", status=403)
+        if not getattr(self, "is_additional_factor", False) and _device_kinds(request.user):
+            # Erst-Einrichtung nur ohne vorhandenen Faktor (GET und POST); weitere Faktoren
+            # ausschliesslich ueber AddFactorView mit frischer Bestaetigung.
+            return redirect("account:home")
         return super().dispatch(request, *args, **kwargs)
 
     def get_available_methods(self):
@@ -229,9 +241,10 @@ class SetupView(tf_core.SetupView):
     def get_form(self, step=None, **kwargs):
         form = super().get_form(step=step, **kwargs)
         if "method" in getattr(form, "fields", {}):
+            available = {m.code for m in self.get_available_methods()}
             form.fields["method"].choices = [
                 (code, self.METHOD_LABELS.get(code, label)) for code, label in form.fields["method"].choices
-                if code in ALLOWED_METHODS
+                if code in available
             ]
         if isinstance(form, (TOTPDeviceForm, DeviceValidationForm)):
             if not isinstance(form, GuardedTokenMixin):
@@ -270,6 +283,10 @@ class SetupView(tf_core.SetupView):
         auth_flows.rotate_security_generation(user, self.request)
         AuditEvent.objects.create(actor=user, action="factor_added", target_type="user",
                                   target_id=str(user.pk), detail=self.get_method().code)
+        if getattr(self, "is_additional_factor", False):
+            from .notifications import notify
+
+            notify(user, "factor_added", self.request)
         return response
 
 
@@ -425,9 +442,9 @@ def resend_verification(request):
 def account_home(request):
     user = request.user
     devices = [
-        {"type": "Authenticator-App" if d.__class__.__name__ == "TOTPDevice" else
-                 "E-Mail-Code" if isinstance(d, EmailDevice) else "Wiederherstellungscodes"}
-        for d in devices_for_user(user)
+        {"type": "Authenticator-App" if d.__class__.__name__ == "TOTPDevice" else "E-Mail-Code",
+         "kind": "generator" if d.__class__.__name__ == "TOTPDevice" else "email"}
+        for d in devices_for_user(user) if not isinstance(d, StaticDevice)
     ]
     backup = StaticDevice.objects.filter(user=user).first()
     from .member_access import quota_status
@@ -505,6 +522,9 @@ class AccountSetPasswordForm(SetPasswordForm):
             user.save()
             AuditEvent.objects.create(actor=user, action="password_reset", target_type="user",
                                       target_id=str(user.pk))
+            from .notifications import notify
+
+            notify(user, "password_reset")
         return user
 
 
@@ -631,3 +651,83 @@ def activate(request):
             request.session.pop(SESSION_INVITE, None)
         return _no_store(render(request, "account/activation_done.html"))
     return _no_store(render(request, "account/activation.html", {"form": form}))
+
+
+# --- Zusaetzlicher Faktor / Faktor entfernen ----------------------------------
+
+def _device_kinds(user) -> set[str]:
+    from django_otp.plugins.otp_totp.models import TOTPDevice
+
+    kinds = set()
+    if TOTPDevice.objects.filter(user=user, confirmed=True).exists():
+        kinds.add("generator")
+    if EmailDevice.objects.filter(user=user, confirmed=True).exists():
+        kinds.add("email")
+    return kinds
+
+
+class AddFactorView(SetupView):
+    """Weiteren Faktor bewusst hinzufuegen (frische Bestaetigung noetig).
+
+    Angeboten wird nur eine noch nicht eingerichtete Methode. Kein automatischer
+    E-Mail-Fallback: der zweite Faktor entsteht nur durch diese ausdrueckliche Aktion.
+    """
+
+    is_additional_factor = True
+
+    def dispatch(self, request, *args, **kwargs):
+        from .permissions import is_fully_verified
+        from .reauth import is_recent, redirect_to_reauth
+
+        if not is_fully_verified(request):
+            return redirect("two_factor:login")
+        if not is_recent(request):
+            return redirect_to_reauth(request, request.path)
+        if not self._missing_methods(request.user):
+            messages.info(request, "Alle verfuegbaren Methoden sind bereits eingerichtet.")
+            return redirect("account:home")
+        return super().dispatch(request, *args, **kwargs)
+
+    def _missing_methods(self, user):
+        return ALLOWED_METHODS - _device_kinds(user)
+
+    def get(self, request, *args, **kwargs):
+        # SetupView leitet bei vorhandenem Geraet weiter; hier bewusst nicht.
+        return IdempotentSessionWizardView.get(self, request, *args, **kwargs)
+
+    def get_available_methods(self):
+        missing = self._missing_methods(self.request.user)
+        return [m for m in super().get_available_methods() if m.code in missing]
+
+    def get_success_url(self):
+        return reverse_lazy("account:home")
+
+
+@never_cache
+@require_http_methods(["POST"])
+@fully_verified_required
+def remove_factor(request):
+    """Entfernt eine Methode nur, wenn danach mindestens eine andere bleibt."""
+    from django_otp.plugins.otp_totp.models import TOTPDevice
+
+    from .notifications import notify
+    from .reauth import is_recent, redirect_to_reauth
+
+    if not is_recent(request):
+        return redirect_to_reauth(request, reverse_lazy("account:home"))
+    kind = request.POST.get("kind")
+    kinds = _device_kinds(request.user)
+    if kind not in kinds or len(kinds) < 2:
+        messages.error(request, "Der letzte Anmeldeschritt kann nicht entfernt werden.")
+        return redirect("account:home")
+    model = TOTPDevice if kind == "generator" else EmailDevice
+    model.objects.filter(user=request.user).delete()
+    AuditEvent.objects.create(actor=request.user, action="factor_removed", target_type="user",
+                              target_id=str(request.user.pk), detail=kind)
+    auth_flows.rotate_security_generation(request.user, request)
+    notify(request.user, "factor_removed", request)
+    messages.success(request, "Anmeldeschritt entfernt. Bitte melden Sie sich neu an.")
+    from django.contrib.auth import logout
+
+    logout(request)
+    return redirect("two_factor:login")

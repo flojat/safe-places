@@ -373,3 +373,30 @@ class UserAdmin(NoBulkDeleteMixin, admin.ModelAdmin):
 
     def save_related(self, request, form, formsets, change):
         pass  # Gruppen werden in save_model gesetzt
+
+    def get_urls(self):
+        custom = [path("<int:pk>/wiederherstellung/", self.admin_site.admin_view(self.recovery_view),
+                       name="locations_user_recovery")]
+        return custom + super().get_urls()
+
+    def recovery_view(self, request, pk: int):
+        from .bootstrap import admin_recovery
+
+        if not can_administer(request):
+            raise Http404()
+        target = get_object_or_404(User, pk=pk)
+        if request.method == "POST":
+            if not reauth.is_recent(request):
+                return reauth.redirect_to_reauth(request, request.path)
+            if request.POST.get("identity_checked") != "on":
+                messages.error(request, "Bitte die Identitaetspruefung bestaetigen.")
+            else:
+                try:
+                    admin_recovery(target, request.user, request)
+                    messages.success(request, "Konto in Neueinrichtung versetzt; Bestaetigungsmail an die gespeicherte Adresse.")
+                    return HttpResponseRedirect(reverse("admin:locations_user_change", args=[pk]))
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+        context = {**self.admin_site.each_context(request), "opts": self.model._meta, "target": target,
+                   "title": "Kontowiederherstellung"}
+        return TemplateResponse(request, "admin/locations/user/recovery.html", context)

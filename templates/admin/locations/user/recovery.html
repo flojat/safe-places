@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Konto-ID {{ target.pk }} · Zustand: {{ target.get_state_display }}</p>
+<p>Dieser dokumentierte Weg ist nur nach einer Identitätsprüfung ausserhalb der Anwendung zulässig
+(siehe docs/AUTHENTICATION.md). Er entfernt alle zweiten Faktoren und Wiederherstellungscodes,
+beendet alle Sitzungen und verlangt eine neue Bestätigung der gespeicherten E-Mail-Adresse.
+Danach wählt die Person beim Login selbst einen neuen zweiten Schritt. Die Administration
+erfährt dabei keine Passwörter oder Geheimnisse; der Vorgang wird protokolliert.</p>
+<form method="post">{% csrf_token %}
+  <p><label><input type="checkbox" name="identity_checked"> Identität der Person wurde geprüft</label></p>
+  <p><button type="submit" class="default">Konto in Neueinrichtung versetzen</button></p>
+</form>
+{% endblock %}

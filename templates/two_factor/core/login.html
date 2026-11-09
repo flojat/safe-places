@@ -28,6 +28,10 @@
     {{ wizard.form.as_div }}
     <div class="actions">
       <button type="submit">Weiter</button>
+      {% if wizard.steps.current == 'token' %}{% for other in other_devices %}
+        <button type="submit" name="challenge_device" value="{{ other.persistent_id }}" class="secondary">
+          Stattdessen {% if "email" in other.persistent_id %}E-Mail-Code{% else %}Authenticator-App{% endif %} verwenden</button>
+      {% endfor %}{% endif %}
       {% if wizard.steps.current == 'token' and device_kind == 'email' %}
         <button type="submit" name="challenge_device" value="{{ device.persistent_id }}" class="secondary">Neuen Code senden</button>
       {% endif %}

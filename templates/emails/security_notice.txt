@@ -1,0 +1,8 @@
+Guten Tag
+
+Sicherheitshinweis zu Ihrem Konto bei der Adresskarte:
+
+{{ event_text }}.
+
+Falls Sie das nicht selbst veranlasst haben, ändern Sie bitte sofort Ihr Passwort und informieren Sie die Administration.
+Diese Nachricht enthält bewusst keine Links oder Codes.
