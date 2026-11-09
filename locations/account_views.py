@@ -411,8 +411,12 @@ def account_home(request):
         for d in devices_for_user(user)
     ]
     backup = StaticDevice.objects.filter(user=user).first()
+    from .member_access import quota_status
+
+    state = auth_state(request)
     return _no_store(render(request, "account/home.html", {
-        "state": auth_state(request),
+        "quota": quota_status(user) if state == "fully_verified" else None,
+        "state": state,
         "devices": devices,
         "backup_count": backup.token_set.count() if backup else 0,
     }))

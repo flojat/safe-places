@@ -89,6 +89,8 @@
     return fetch(url, { signal: ctrl.signal, credentials: "same-origin", headers: { "Accept": "application/json" } })
       .then(function (r) {
         if (r.status === 429) { lastUrl[kind] = null; throw new Error("Zu viele Anfragen. Bitte kurz warten und dann erneut versuchen."); }
+        if (r.status === 403) { lastUrl[kind] = null; throw new Error("Sitzung abgelaufen. Bitte Seite neu laden."); }
+        if (r.status === 503) { lastUrl[kind] = null; throw new Error("Vorübergehend nicht verfügbar. Bitte später erneut versuchen."); }
         if (!r.ok) { lastUrl[kind] = null; throw new Error("Die Anfrage konnte nicht verarbeitet werden."); }
         return r.json();
       })
@@ -126,6 +128,14 @@
       meta.textContent = item.category_label + " · " + item.place;
       var text = document.createElement("p");
       text.textContent = item.preview_text;
+      if (item.thumb) {
+        var img = document.createElement("img");
+        img.className = "list-thumb";
+        img.src = item.thumb.url;
+        img.alt = item.thumb.alt || "";
+        img.loading = "lazy";
+        li.appendChild(img);
+      }
       li.append(h, meta, text);
       li.addEventListener("click", function (ev) {
         if (ev.target.tagName === "A") return;

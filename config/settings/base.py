@@ -213,3 +213,36 @@ TWO_FACTOR_LOGIN_TIMEOUT = 600
 PASSWORD_RESET_TIMEOUT = 3600
 OTP_EMAIL_SENDER = DEFAULT_FROM_EMAIL  # production.py setzt beides neu
 OTP_EMAIL_BODY_TEMPLATE_PATH = "emails/login_code.txt"
+
+# Bilder (Abschnitt 9)
+IMAGE_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+IMAGE_MAX_PIXELS = 25_000_000
+MAX_ACTIVE_PHOTOS_PER_LOCATION = 20
+
+# Etappe 3: Besucher-/Mitgliedslimits (Abschnitt 8, Startwerte) und Freigabebuchungen
+_M = 60
+RATE_LIMITS.update({
+    # Vorschau-, Listen- und Kartenpunktabfragen zusammen
+    "query_guest_session": [(12, _M), (120, _D)],
+    "query_member_account": [(60, _M), (1000, _D)],
+    "query_ip": [(300, _M), (5000, _D)],
+    # Neue geschuetzte Objektfassungen (Freigabebuchungen)
+    "grant_account": [(5, 900), (20, _D)],
+    "grant_ip": [(40, 900), (100, _D)],
+    "grant_global": [(500, _D)],
+    # Bereits freigegebene Details
+    "detail_member_account": [(60, _M)],
+    "detail_ip": [(300, _M)],
+    # Fotos/Thumbnails
+    "photo_guest_session": [(60, _M)],
+    "photo_member_account": [(240, _M)],
+    "photo_ip": [(1200, _M)],
+    # Kachelweg inkl. Cachetreffer
+    "tile_guest_session": [(120, _M)],
+    "tile_member_account": [(360, _M)],
+    "tile_ip": [(1200, _M)],
+    # Anlage neuer Gastsitzungen
+    "guest_session_ip": [(60, _H)],
+})
+DISCLOSURE_GRANT_HOURS = 24
+GUEST_SESSION_SECONDS = 2 * 3600

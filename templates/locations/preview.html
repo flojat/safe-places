@@ -4,12 +4,25 @@
 <article class="preview">
   <p class="muted">{{ obj.category_label }} · {{ obj.place }}</p>
   <h1>{{ obj.title }}</h1>
+  {% if obj.thumb %}<p><img class="thumb" src="{{ obj.thumb.url }}" alt="{{ obj.thumb.alt }}" width="400"></p>{% endif %}
   <p>{{ obj.preview_text }}</p>
-  <aside class="notice">
-    <p>Ausführliche Beschreibung, Fotos und Kontaktangaben sind nur für angemeldete Mitglieder
-       mit bestätigter E-Mail-Adresse und zweitem Anmeldeschritt sichtbar.</p>
-    <p><a href="{% url 'two_factor:login' %}?next={{ request.path|urlencode }}">Anmelden</a></p>
-  </aside>
+  {% if member %}
+    <aside class="notice">
+      <p>Ausführliche Beschreibung, Fotos und Kontaktangaben dieses Objekts anzeigen.
+         Neue Objekte zählen zu Ihrem Kontingent: {{ quota.remaining }} von {{ quota.limit }} in den letzten 24 Stunden verfügbar.
+         Bereits geöffnete Objekte bleiben 24 Stunden ohne neue Zählung sichtbar.</p>
+      <form method="post" action="{% url 'locations:open_details' obj.id %}">{% csrf_token %}
+        <button type="submit">Details und Kontakte anzeigen</button>
+      </form>
+    </aside>
+  {% else %}
+    <aside class="notice">
+      <p>Ausführliche Beschreibung, Fotos und Kontaktangaben sind nur für angemeldete Mitglieder
+         mit bestätigter E-Mail-Adresse und zweitem Anmeldeschritt sichtbar.</p>
+      <p><a href="{% url 'two_factor:login' %}?next={{ request.path|urlencode }}">Anmelden</a>
+         · <a href="{% url 'account:register' %}">Registrieren</a></p>
+    </aside>
+  {% endif %}
   <p><a href="{% url 'locations:home' %}">Zurück zur Übersicht</a></p>
 </article>
 {% endblock %}

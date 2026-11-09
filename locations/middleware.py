@@ -18,6 +18,9 @@ SETUP_ABSOLUTE_SECONDS = 60 * 60
 
 
 def init_session(request, user) -> None:
+    # Gastsitzungs-Laufzeit nicht in die angemeldete Sitzung uebernehmen.
+    request.session.pop("guest_started", None)
+    request.session.set_expiry(None)
     now = int(time.time())
     request.session[SESSION_GENERATION] = user.security_generation
     request.session[SESSION_LOGIN_AT] = now

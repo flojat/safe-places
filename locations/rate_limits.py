@@ -100,6 +100,13 @@ def _reserve_locked(keyed: list[tuple[Limit, str]], bucket_keys: list[tuple[str,
         RateEvent.objects.bulk_create([RateEvent(bucket=b, created_at=now) for b in buckets.values()])
 
 
+def prepare(limits: list[Limit]) -> None:
+    """Legt Sperrzeilen vorab an. Aufrufen, BEVOR reserve() innerhalb einer
+    umgebenden Transaktion laeuft, damit dort keine INSERT-Deadlocks entstehen."""
+    for scope, key in sorted({(lim.scope, pseudonymize(lim.scope, lim.raw_key)) for lim in limits}):
+        _ensure_bucket(scope, key)
+
+
 def reserve(limits: list[Limit]) -> None:
     """Reserviert atomar ein Ereignis in allen betroffenen Buckets oder keines."""
     if not limits:

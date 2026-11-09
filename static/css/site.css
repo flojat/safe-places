@@ -65,3 +65,12 @@ button.secondary { background: #fff; border: 1px solid var(--line); }
 .facts dd { margin: 0; }
 .codes { columns: 2; font-size: 1.05rem; }
 .qr { background: #fff; padding: .5rem; max-width: 14rem; }
+
+/* Objektseiten */
+.preview { padding: 1rem; }
+.thumb { max-width: 100%; height: auto; border-radius: 4px; }
+.prewrap { white-space: pre-line; }
+.detail-map { height: 18rem; max-width: 40rem; border: 1px solid var(--line); }
+.gallery { display: flex; flex-wrap: wrap; gap: .5rem; }
+.gallery img { border-radius: 4px; height: auto; }
+.results img.list-thumb { float: right; width: 72px; height: auto; margin-left: .5rem; border-radius: 3px; }

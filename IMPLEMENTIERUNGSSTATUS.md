@@ -26,7 +26,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 0/1 | Projektgeruest, Lockdateien mit Hashes, Settings local/test/production, Benutzermodell, erste Migrationen | umgesetzt (siehe Pruefungen) |
 | 1 | Datenmodell Objekt/Anbieter/Snapshot/Foto, drei Projektionen, Gastkarte/-liste, Leaflet lokal, seed_demo | umgesetzt; Gast-Requestlimits und Bildverarbeitung OFFEN (Etappe 3) |
 | 2 | Registrierung, E-Mail-Bestaetigung, E-Mail-/TOTP-Login, Sitzungsschutz, Passwortreset, atomarer Limiter | umgesetzt; offen: Faktorwechsel/E-Mail-Aenderung mit frischer Reauth, Benachrichtigungsmails, Recovery-Code-Nutzungsprotokoll (Etappe 4/6) |
-| 3 | Kontingente, Mitgliedsdetails, Bilder, Limits | OFFEN |
+| 3 | Freigabebuchungen/Kontingente, Mitgliedsdetails mit Kontakten, sichere Bildverarbeitung, Fotoauslieferung, Gast-/Mitglieds-Requestlimits | umgesetzt; Upload-UI folgt mit Etappe 4 (Portal) |
 | 4 | Meine Objekte, Redaktion, Administration | OFFEN |
 | 5 | swisstopo-Gateway, Budgets, Geokodierung | OFFEN |
 | 6 | Initialkonten, Aktivierung, Installations-/Deploymentroutine | OFFEN |
@@ -49,11 +49,31 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-09 | Etappe 2: Testsuite 96 Tests (u. a. E2E Registrierung->Verifikation->Passwort+E-Mail-Code und Passwort+TOTP inkl. Einrichtung; Codewiederverwendung, 5 Fehlversuche, Cooldown, parallele Challenges, SMTP-Ausfall ohne Fallback, Mailbudget, Admin nur mit zweitem Schritt, Reset ohne Login und ohne TOTP-Verlust, Axes-Sperre, Sitzungsablauf/-entzug, offene Redirects, CSRF, parallele Limiter-Reservierung und paralleler TOTP-Verbrauch mit echten DB-Verbindungen), 2x | BESTANDEN |
 | 2026-11-09 | Browsertest Registrierung->Bestaetigung->Login->E-Mail-Code-Einrichtung (Chromium) | BESTANDEN |
 | 2026-11-09 | Gefundene/behobene Fehler: Axes zaehlte Fehlversuche ohne Benutzernamen (Sperre griff nicht); Limiter-Deadlocks bei parallelem Bucket-Anlegen; `Referrer-Policy: no-referrer` fuehrte in Browsern zu `Origin: null` und CSRF-Ablehnung; Axes protokollierte E-Mail-Adressen | behoben, Tests BESTANDEN |
+| 2026-11-09 | `seed_demo --rebuild-demo` auf Dev-DB: 100 Objekte, 100 lokal erzeugte Demobilder (25 Gast, 50 Mitglied, 25 intern) | BESTANDEN |
+| 2026-11-09 | Etappe 3: Testsuite 127 Tests (u. a. GET bucht nie; Details/Kontakte nur nach POST-Buchung; Wiederabruf ohne neue Zaehlung; Kontingent greift vor sensibler Ausgabe; Kontingent ueber alle Sitzungen eines Kontos; neue disclosure_version braucht neue Buchung; Rueckzug/Logout stoppen Auslieferung trotz Buchung; Limiter-Ausfall 503; 11 parallele Oeffnungen mit echten DB-Verbindungen: genau 5 Buchungen, keine Doppelbuchung; Fotorechte Gast/Mitglied/intern/Entwurf/zurueckgezogen, auch DEBUG; Bildpruefung inkl. EXIF/GPS-Entfernung, Ausrichtung, GIF/Animation/SVG/defekt/Uebergroesse/Dekompressionsbombe/Pfadmanipulation; Gastlimit 12/min trotz gefaelschter Forwarded-Header; Login/Registrierung bei erschoepftem Limit bedienbar; Sitzungsneuanlage IP-begrenzt) | BESTANDEN |
+| 2026-11-09 | Browsertest Mitglied: TOTP-Login im Browser, Rueckkehr zum Objekt, Oeffnen, Kontakte/Fotos/Detailkarte geladen | BESTANDEN |
+| 2026-11-09 | Gefunden/behoben: Direktlink ohne bestehende Sitzung lieferte 403 (Sitzungsschluessel erst am Antwortende); Gastsitzungs-Laufzeit wurde in Mitgliedssitzung uebernommen | behoben |
+| 2026-11-09 | Parallel-Buchungstest einmal rot: Ursache Testannahme (Objekt 0 kann korrekt erst nach Kontingentende drankommen), Verhalten korrekt; Test korrigiert, Sperrzeilen zusaetzlich vor der Buchungstransaktion angelegt; danach 10x Einzeltest + 2x Gesamtsuite (127) | BESTANDEN |
 | – | `check --deploy` mit Produktionssettings | OFFEN |
 | – | Apache/WSGI-End-to-End | BLOCKIERT (kein Hostingzugang, Profil unbestaetigt) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
 ## Entscheidungen
+
+- Freigabebuchung `DisclosureGrant` (Konto, freigegebener Stand, disclosure_version, 24 h ab erster
+  Buchung, keine Verlaengerung). Buchung nur per CSRF-geschuetztem POST; GET zeigt Details nur bei
+  gueltiger Buchung der aktuellen Fassung. Kontozeile wird waehrend der Buchung gesperrt, Kontingent-
+  ereignis und Buchung in derselben Transaktion. Abgelaufene Buchung derselben Fassung wird neu gebucht.
+- Request-Limits: Gaeste ueber kurzlebige Gastsitzung (2 h, Neuanlage 60/h je IP), vollstaendig
+  angemeldete Konten ueber das Konto, zusaetzlich IP. JSON/Fotos/Kacheln ohne Sitzung: 403.
+  Unbekannte Objekt-IDs zaehlen mit (Enumerationsbremse).
+- Fotos: Originale werden nach Verarbeitung verworfen; Varianten `thumb` (<=400 px) und `detail`
+  (<=1600 px) als neu kodiertes JPEG ohne Metadaten in `var/private_media/<xx>/<key>/` (0700/0600).
+  Gaeste nur `thumb` freigegebener Gastvorschaubilder; Mitglieder mit gueltiger Buchung Gast- und
+  Mitgliedsfotos beider Varianten; interne/Entwurfsbilder nur verifizierte Verwaltung bzw. zugeordnete
+  Betreuung. Rueckzug (`is_withdrawn`) wirkt sofort.
+- Interne Arbeitszugriffe (Etappe 4) verbrauchen kein Besucherkontingent; auf Besucherseiten gelten
+  fuer alle Rollen dieselben Buchungsregeln.
 
 - Login/Einrichtung: django-two-factor-auth-Views, abgeleitet und ergaenzt um Kontozustand
   (nur aktive, E-Mail-bestaetigte Konten), sitzungsgebundene E-Mail-Challenges (`LoginChallenge`,

@@ -9,5 +9,7 @@ urlpatterns = [
     path("api/punkte", views.api_points, name="api_points"),
     path("api/liste", views.api_list, name="api_list"),
     path("objekt/<str:public_id>/", views.preview, name="preview"),
+    path("objekt/<str:public_id>/oeffnen/", views.open_details, name="open_details"),
+    path("medien/<str:public_id>/<str:variant>.jpg", views.photo, name="photo"),
     path("map/tiles/<int:z>/<int:x>/<int:y>.jpeg", views.tile, name="tile"),
 ]

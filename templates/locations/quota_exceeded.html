@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<article class="preview">
+  <h1>Kontingent erreicht</h1>
+  <p>Sie haben die Anzahl neu geöffneter Objekte für diesen Zeitraum erreicht.
+     Neue Objekte können Sie voraussichtlich ab {{ available_at|date:"d.m.Y H:i" }} wieder öffnen.
+     Bereits geöffnete Objekte bleiben innerhalb ihrer Freigabe sichtbar.</p>
+  <p class="muted">{{ obj.title }} · {{ obj.place }}</p>
+  <p><a href="{% url 'locations:home' %}">Zurück zur Übersicht</a></p>
+</article>
+{% endblock %}

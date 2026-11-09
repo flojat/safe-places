@@ -43,7 +43,7 @@ class GuestBrowserTests(StaticLiveServerTestCase):
         super().tearDownClass()
 
     def setUp(self):
-        call_command("seed_demo", "--count", "100", stdout=StringIO())
+        call_command("seed_demo", "--count", "100", "--no-photos", stdout=StringIO())
 
     def _page(self, **kw):
         ctx = self.browser.new_context(**kw)
@@ -182,3 +182,62 @@ class AuthBrowserTests(StaticLiveServerTestCase):
         self.assertIn("Vollständig angemeldet", page.content())
         if shots:
             page.screenshot(path=f"{shots}/account.png")
+
+
+@unittest.skipIf(sync_playwright is None, "BLOCKIERT: Playwright nicht installiert")
+class MemberBrowserTests(StaticLiveServerTestCase):
+    """Echter Browserablauf: TOTP-Login, bewusstes Oeffnen, Details/Kontakte/Fotos/Detailkarte."""
+
+    host = "127.0.0.1"
+
+    @classmethod
+    def setUpClass(cls):
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+        super().setUpClass()
+        cls.pw = sync_playwright().start()
+        cls.browser = cls.pw.chromium.launch()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.pw.stop()
+        super().tearDownClass()
+
+    def test_member_opens_details_with_photos_and_exact_map(self):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        from . import helpers_auth as h
+        from .test_stage3_member import make_published
+
+        _, pub, _ = make_published(1)
+        password = h.random_password()
+        user = h.make_active_user("browser-mitglied@example.org", password)
+        device = TOTPDevice.objects.create(user=user, name="default", confirmed=True)
+
+        shots = os.environ.get("ADRESSKARTE_SCREENSHOT_DIR")
+        ctx = self.browser.new_context(viewport={"width": 1100, "height": 900})
+        self.addCleanup(ctx.close)
+        page = ctx.new_page()
+        requests = []
+        page.on("request", lambda r: requests.append(r.url))
+        base = self.live_server_url
+
+        page.goto(f"{base}/objekt/{pub.public_id}/")
+        self.assertNotIn("MITGLIEDERDETAIL-", page.content())
+        page.get_by_role("link", name="Anmelden").last.click()
+        page.fill("input[name='auth-username']", user.email)
+        page.fill("input[name='auth-password']", password)
+        page.get_by_role("button", name="Weiter", exact=True).click()
+        page.wait_for_selector("input[name='token-otp_token']")
+        page.fill("input[name='token-otp_token']", h.totp_code(device.bin_key, 0))
+        page.get_by_role("button", name="Weiter", exact=True).click()
+        page.wait_for_url(f"**/objekt/{pub.public_id}/")  # Rueckkehr zum Objekt
+        page.get_by_role("button", name="Details und Kontakte anzeigen").click()
+        page.wait_for_selector("text=kontakt1@example.org")
+        self.assertIn("MITGLIEDERDETAIL-1 lang", page.content())
+        page.wait_for_selector(".leaflet-tile-loaded")
+        loaded = page.eval_on_selector_all(".gallery img", "els => els.map(e => e.complete && e.naturalWidth > 0)")
+        self.assertTrue(loaded and all(loaded))
+        self.assertTrue(any("/map/tiles/" in u for u in requests))
+        if shots:
+            page.screenshot(path=f"{shots}/member_detail.png", full_page=True)

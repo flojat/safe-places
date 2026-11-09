@@ -18,6 +18,12 @@ from locations.geo import (
 from locations.models import Location, PublishedLocation
 from locations.services import publishing
 
+# Funktionstests der Gastansicht mit grosszuegigen Limits; die Limits selbst testet test_stage3.
+RELAXED_LIMITS = override_settings(RATE_LIMITS={
+    **__import__("django.conf", fromlist=["settings"]).settings.RATE_LIMITS,
+    "query_guest_session": [(1000, 60)], "query_ip": [(1000, 60)],
+})
+
 FORBIDDEN_IN_GUEST = ("CANARY-", "MITGLIEDERDETAIL-", "@example.org", "+41 00 000", "example.org/demo")
 
 
@@ -168,10 +174,14 @@ class ProjectionTests(TestCase):
         self.assertIn("MITGLIEDERDETAIL-T", data["long_description"])
 
 
+@RELAXED_LIMITS
 class SeededGuestApiTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("seed_demo", "--count", "100", stdout=StringIO())
+
+    def setUp(self):
+        self.client.get("/")  # Gastsitzung wie im Browser
 
     def test_seed_counts(self):
         self.assertEqual(Location.objects.filter(is_demo=True).count(), 100)
@@ -283,6 +293,9 @@ class SeededGuestApiTests(TestCase):
 
 
 class TileTests(TestCase):
+    def setUp(self):
+        self.client.get("/")
+
     def _tile_for(self, lat, lon, z):
         n = 2 ** z
         x = int((lon + 180) / 360 * n)

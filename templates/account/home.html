@@ -9,6 +9,7 @@
     <dd>{% if state == 'fully_verified' %}Vollständig angemeldet{% elif state == 'password_verified_mfa_pending' %}Zweiter Schritt fehlt{% else %}Nicht aktiviert{% endif %}</dd>
     <dt>Zweiter Schritt</dt>
     <dd>{% for d in devices %}{{ d.type }}{% if not forloop.last %}, {% endif %}{% empty %}nicht eingerichtet{% endfor %}</dd>
+    {% if quota %}<dt>Geöffnete Objekte (24 h)</dt><dd>{{ quota.used }} von {{ quota.limit }}; noch {{ quota.remaining }} neue verfügbar</dd>{% endif %}
   </dl>
   {% if state == 'password_verified_mfa_pending' %}
     <p><a href="{% url 'two_factor:setup' %}">Zweiten Anmeldeschritt einrichten</a></p>

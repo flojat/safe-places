@@ -390,3 +390,29 @@ class LoginChallenge(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["user", "state"])]
+
+
+# ---------------------------------------------------------------------------
+# Etappe 3: Freigabebuchung fuer Mitgliedsdetails
+# ---------------------------------------------------------------------------
+
+
+class DisclosureGrant(models.Model):
+    """Kontogebundene Buchung einer Objektfassung (Konto, Objekt, disclosure_version).
+
+    Kein oeffentlicher Link. Gueltig 24 h ab erster Buchung; Wiederabruf verlaengert
+    nicht. Mitgliedschaft, MFA und Objektstatus werden bei jedem Zugriff erneut geprueft.
+    Enthaelt keine Kontakte oder Geheimnisse; Bereinigung binnen 48 h nach Ablauf.
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    published = models.ForeignKey(PublishedLocation, on_delete=models.CASCADE, related_name="+")
+    disclosure_version = models.PositiveIntegerField()
+    created_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "published", "disclosure_version"], name="grant_unique"),
+        ]
+        indexes = [models.Index(fields=["user", "created_at"])]

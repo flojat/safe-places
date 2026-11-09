@@ -45,3 +45,8 @@ LOGGING = {
     },
     "root": {"handlers": ["console"], "level": "WARNING"},
 }
+
+# Private Testmedien in eigenem temporaeren Verzeichnis (nie im Entwicklungs-var/).
+import tempfile as _tempfile  # noqa: E402
+
+PRIVATE_MEDIA_ROOT = _tempfile.mkdtemp(prefix="adresskarte-test-media-")

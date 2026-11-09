@@ -39,6 +39,10 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 - `locations/account_views.py`: abgeleitete two_factor-Login/Setup-Views mit Schutzmixin, Konto, Reset.
 - `locations/rate_limits.py`: atomarer DB-Limiter (`reserve`, `configured`); `services/security_mail.py`: Mailbudget.
 - `locations/permissions.py`: Anmeldezustaende und `fully_verified_required`; `middleware.py`: Sitzungsschutz.
+- `locations/member_access.py`: Freigabebuchung/Kontingent, Fotozugriffs-Policy.
+- `locations/request_limits.py`: Gastsitzung und Besucherlimits (`limited`-Decorator).
+- `locations/services/images.py`: Bildpruefung und Varianten; Testmedien liegen in einem Temp-Verzeichnis.
+- `seed_demo --rebuild-demo` ersetzt nur Demo-Objekte (external_id demo-*) inkl. Demobilder.
 - Wartung: `manage.py cleanup_security_state` (per Hosting-Cron).
 - Testhilfen fuer echte Login-Ablaeufe: `locations/tests/helpers_auth.py`.
 - Tests markieren interne Werte mit `CANARY-`, Mitgliedswerte mit `MITGLIEDERDETAIL-`.

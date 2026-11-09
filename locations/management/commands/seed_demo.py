@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import io
 import random
 
 from django.conf import settings
@@ -16,8 +17,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from locations.geo import coarse_preview_point, to_coordinate
-from locations.models import Category, Location, Provider
-from locations.services import publishing
+from locations.models import Category, Location, Photo, Provider, PublishedLocation
+from locations.services import images, publishing
 
 REGIONS = [
     ("Zürich", 47.3769, 8.5417), ("Bern", 46.9480, 7.4474), ("Basel", 47.5596, 7.5886),
@@ -38,12 +39,19 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--count", type=int, default=100)
+        parser.add_argument("--no-photos", action="store_true", help="Keine Demobilder erzeugen")
+        parser.add_argument(
+            "--rebuild-demo", action="store_true",
+            help="Nur von seed_demo erzeugte Demo-Objekte (external_id demo-*) samt Fotos loeschen und neu anlegen",
+        )
 
-    def handle(self, *args, count: int, **options):
+    def handle(self, *args, count: int, no_photos: bool = False, rebuild_demo: bool = False, **options):
         if settings.ENVIRONMENT == "production":
             raise CommandError("seed_demo ist in Produktion verboten.")
         if not 1 <= count <= 500:
             raise CommandError("--count muss zwischen 1 und 500 liegen.")
+        if rebuild_demo:
+            self._remove_demo()
         rng = random.Random(SEED)
         approved_count = round(count * 0.9)
         created = skipped = published = 0
@@ -109,6 +117,8 @@ class Command(BaseCommand):
                     is_demo=True,
                 )
             created += 1
+            if not no_photos and n % 4 == 0:
+                self._add_demo_photos(loc, n, label, region)
             if n <= approved_count:
                 publishing.submit(loc.pk, None, loc.work_version)
                 publishing.publish(loc.pk, None, loc.work_version)
@@ -117,3 +127,49 @@ class Command(BaseCommand):
         self.stdout.write(
             f"seed_demo: {created} neu, {published} freigegeben, {skipped} bereits vorhanden (unveraendert)."
         )
+
+    # --- Demobilder (lokal erzeugt, keine fremden Fotos) ---------------------
+
+    def _add_demo_photos(self, loc, n: int, label: str, region: str) -> None:
+        plan = [
+            (Photo.Visibility.GUEST_PREVIEW, "Demo-Vorschaubild", (60, 140, 110)),
+            (Photo.Visibility.MEMBER_DETAIL, "Demo-Mitgliederfoto 1", (70, 90, 160)),
+            (Photo.Visibility.MEMBER_DETAIL, "Demo-Mitgliederfoto 2", (150, 90, 70)),
+            (Photo.Visibility.INTERNAL, "Demo-Entwurfsbild intern", (120, 120, 120)),
+        ]
+        for order, (visibility, alt, color) in enumerate(plan):
+            data = _demo_image_bytes(f"DEMO {n:03d}", f"{label} · {region}", alt, color)
+            processed = images.process_upload(data)
+            Photo.objects.create(
+                location=loc, storage_key=processed.storage_key, alt_text=f"{alt} ({label}, {region})",
+                sort_order=order, visibility=visibility, width=processed.width, height=processed.height,
+            )
+
+    def _remove_demo(self) -> None:
+        locations = Location.objects.filter(is_demo=True, external_id__startswith="demo-")
+        keys = list(Photo.objects.filter(location__in=locations).values_list("storage_key", flat=True))
+        with transaction.atomic():
+            PublishedLocation.objects.filter(location__in=locations).delete()
+            Photo.objects.filter(location__in=locations).delete()
+            removed, _ = locations.delete()
+            Provider.objects.filter(is_demo=True, name__startswith="Demo-Anbieter", locations__isnull=True).delete()
+        for key in keys:
+            images.delete_files(key)
+        self.stdout.write(f"seed_demo: {len(keys)} Demobilder und Demo-Objekte entfernt.")
+
+
+def _demo_image_bytes(title: str, subtitle: str, caption: str, color: tuple[int, int, int]) -> bytes:
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGB", (1200, 800), color)
+    draw = ImageDraw.Draw(img)
+    for i in range(0, 800, 40):
+        shade = tuple(min(255, c + i // 8) for c in color)
+        draw.rectangle([0, i, 1200, i + 40], fill=shade)
+    draw.rectangle([60, 60, 1140, 740], outline=(255, 255, 255), width=6)
+    draw.text((100, 100), title, fill=(255, 255, 255), font_size=96)
+    draw.text((100, 240), subtitle, fill=(255, 255, 255), font_size=48)
+    draw.text((100, 640), caption + " - synthetisch, kein reales Angebot", fill=(255, 255, 255), font_size=36)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
