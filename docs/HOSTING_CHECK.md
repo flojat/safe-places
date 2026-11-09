@@ -1,11 +1,25 @@
 # Hosting-Pruefung
 
-Stand 2026-11-09: **Zielhosting nicht kontaktiert und nicht geprueft.** Alle hostingbezogenen
-Punkte sind offen.
+Stand 2026-11-09: Zielhosting teilweise ueber Angaben des Betreibers geprueft (kein direkter Zugriff).
+
+## Befunde Zielserver (vom Betreiber ausgefuehrt, 2026-11-09)
+
+- Debian 12, ISPConfig, Shell-Benutzer **ohne** Jail (keine Isolation per Chroot; Schutz nur ueber Benutzer-/Dateirechte).
+- Python 3.11.2 mit funktionierendem venv (pip 23.0.1); git 2.39; gcc vorhanden; libmariadb3 10.11.19.
+  Fuer den Bau von mysqlclient fehlen noch `python3.11-dev`, `libmariadb-dev`, `pkg-config` (oder vorgebautes Wheel).
+- Apache mit **Phusion Passenger** (laeuft) und **mod_python** (von ISPConfig).
+- **Vorfall**: Installation von `libapache2-mod-wsgi-py3` loeste den automatischen Apache-Neustart des Pakets aus;
+  Apache startete nicht mehr (`mod_python ... can not be used in conjunction with mod_wsgi 4.0+`), alle Websites
+  kurz offline. Behoben durch `a2dismod wsgi` und Neustart. Lehre: Apache-Modulpakete unter Debian starten Apache
+  bei der Installation sofort neu; vorher `apachectl -M` auf Konflikte pruefen und Wartungsfenster einplanen.
+- Passenger 6.0.17 (Debian-Paket) aktiv; bisher von keiner Website genutzt. Gewaehltes Profil: **Passenger**
+  (`passenger_wsgi.py`, Vorlage `deployment/apache/adresskarte-passenger-ispconfig.directives.example`),
+  App-Neustart per `shared/tmp/restart.txt` (PassengerRestartDir). Betreiberbestaetigung ausstehend.
+  mod_wsgi wird nicht verwendet (Paket entfernen).
 
 | Faehigkeit | Status | Nachweis |
 |---|---|---|
-| Python-Webanbindung (mod_wsgi oder Passenger) | BLOCKED_HOSTING_WSGI | Hoster bestaetigt Profil + passendes Python; `hosting.local.json` |
+| Python-Webanbindung (mod_wsgi oder Passenger) | Passenger vorhanden, Website-Konfiguration ausstehend | Hoster bestaetigt Profil + passendes Python; `hosting.local.json` |
 | App-Reload ohne Server-Neustart | offen | Hoster nennt erlaubten Weg (touch/Befehl); sonst `PREPARED_NOT_ACTIVATED` |
 | Shell/Git (lesend, Deploy-Key) | offen | `preflight --environment production` |
 | MariaDB-Version, eigenes Konto | offen | `doctor` nach Installation |

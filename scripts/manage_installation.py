@@ -209,6 +209,13 @@ def check_config(report: Report, config_dir: Path, environment: str) -> dict:
                    "Zielumgebung pruefen; nie Produktiv- und Testkonfiguration mischen")
     else:
         report.add("CONFIG_ENVIRONMENT", "PASS", "Umgebung stimmt ueberein")
+    if environment != "local":
+        var_dir = values.get("VAR_DIR", "")
+        if not var_dir or not os.path.isabs(var_dir):
+            report.add("CONFIG_VAR_DIR", "FAIL", "VAR_DIR fehlt oder ist relativ (Daten laegen im Release)",
+                       "Absoluten Pfad unter <app-home>/shared/var setzen (Rechte 0700)")
+        else:
+            report.add("CONFIG_VAR_DIR", "PASS", "VAR_DIR absolut (ausserhalb der Releases)")
     if len(values.get("DJANGO_SECRET_KEY", "")) < 50:
         report.add("CONFIG_SECRET", "FAIL" if environment == "production" else "WARN",
                    "DJANGO_SECRET_KEY zu kurz", "Mindestens 50 zufaellige Zeichen; lokale Schluessel nie produktiv")
@@ -254,13 +261,18 @@ def check_wsgi(report: Report, environment: str, hosting: dict) -> None:
         return
     report.add("WSGI_PROFILE", "PASS", f"Profil {profile} vom Betreiber bestaetigt (Ausfuehrung damit nicht bewiesen)")
     apachectl = shutil.which("apachectl") or shutil.which("apache2ctl")
-    if profile == "mod_wsgi" and apachectl:
+    if apachectl and profile in ("mod_wsgi", "passenger"):
         result = run([apachectl, "-M"], cwd=PROJECT, timeout=20)
-        if "wsgi_module" in (result.stdout + result.stderr):
-            report.add("WSGI_MODULE", "PASS", "mod_wsgi im Apache geladen")
+        modules = result.stdout + result.stderr
+        wanted = "wsgi_module" if profile == "mod_wsgi" else "passenger_module"
+        if wanted in modules:
+            report.add("WSGI_MODULE", "PASS", f"{wanted} im Apache geladen")
         else:
-            report.add("WSGI_MODULE", "UNKNOWN", "mod_wsgi im lokalen Apache nicht erkennbar",
-                       "Vom Hoster bestaetigen lassen, dass mod_wsgi zum Python-Interpreter passt")
+            report.add("WSGI_MODULE", "UNKNOWN", f"{wanted} nicht erkennbar (evtl. fehlende Leserechte)",
+                       "Vom Betreiber bestaetigen lassen")
+        if "wsgi_module" in modules and "python_module" in modules:
+            report.add("APACHE_MODULE_CONFLICT", "FAIL", "mod_wsgi und mod_python gleichzeitig geladen",
+                       "Nicht kombinieren: Apache startet nicht (mod_wsgi >= 4)")
     report.add("WSGI_RUNTIME", "UNKNOWN", "Echte WSGI-Ausfuehrung nicht verifiziert",
                "Nach Deployment einen autorisierten Webrequest pruefen (docs/HOSTING_CHECK.md)")
 
@@ -535,8 +547,13 @@ def reload_app(hosting: dict, app_home: Path) -> tuple[bool, str]:
         return False, "Keine vom Betreiber bestaetigte Reload-Funktion"
     if reload_cfg.get("type") == "touch":
         path = (app_home / reload_cfg.get("path", "")).resolve()
-        if app_home.resolve() not in path.parents or not path.is_file():
-            return False, "Reload-Datei ausserhalb des App-Verzeichnisses oder fehlend"
+        if app_home.resolve() not in path.parents:
+            return False, "Reload-Datei ausserhalb des App-Verzeichnisses"
+        if hosting.get("wsgi_profile") == "passenger" and path.name == "restart.txt" and not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            path.touch(mode=0o600)  # Passenger-Neustartdatei (dokumentierter Mechanismus)
+        if not path.is_file():
+            return False, "Reload-Datei fehlt"
         os.utime(path, None)
         return True, "Reload ausgeloest (touch)"
     if reload_cfg.get("type") == "command" and isinstance(reload_cfg.get("argv"), list):

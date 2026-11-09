@@ -73,7 +73,9 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-09 | Gefunden/behoben: `SetupView` sperrte vorhandene Faktoren nur bei GET – per POST waere ohne Reauth ein weiterer Faktor einrichtbar gewesen; Methodenauswahl jetzt auf verfuegbare Methoden beschraenkt | behoben |
 | 2026-11-09 | Gesamtsuite 229 Tests, 2x | BESTANDEN |
 | 2026-11-09 | Restore-Test: Dump Dev-DB -> isolierte Wegwerf-DB, 32 Tabellen ohne Pruefsummenabweichung, Zeilen identisch; 204 Mediendateien hashgleich; danach geloescht | BESTANDEN |
-| – | Apache/WSGI-End-to-End auf Zielhosting | BLOCKIERT (kein Hostingzugang) |
+| 2026-11-09 | Kompatibilitaet Zielpython: Gesamtsuite in Debian-12-Container mit Python 3.11.18 gegen lokale Test-DB, Hash-Installation inkl. Quellbau mysqlclient 2.3.0: 229 Tests, 5 uebersprungen (Browser ohne Playwright im Container). Erster Lauf ohne git im Container: 11 Installationstests rot (Umgebung), mit git gruen. Hinweis: Server hat Debian-Python 3.11.2 | BESTANDEN |
+| 2026-11-09 | Zielserver vorbereitet (durch Betreiber): python3.11-venv, python3.11-dev, libmariadb-dev, pkg-config; mod_wsgi entfernt; Profil Passenger gewaehlt | erledigt |
+| – | Apache/WSGI-End-to-End auf Zielhosting | BLOCKIERT (Passenger-Direktiven/Release noch nicht eingerichtet) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
 ## Entscheidungen

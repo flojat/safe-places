@@ -7,12 +7,16 @@
       releases/<commit12>-<zeit>/  konkreter Stand mit eigener .venv und staticfiles/
       current -> releases/<id>/    nur wenn das Hosting Symlinks korrekt unterstuetzt
       shared/config/             .env, hosting.local.json, Initialmanifest (0700/0600)
+      shared/var/                VAR_DIR (absolut in .env): private_media, tile_cache (0700)
+      shared/tmp/restart.txt     Passenger-Neustartdatei (PassengerRestartDir)
       shared/locks/              Deploymentlock
       shared/installation-state/ Plan und Releasehistorie
-    var/ (bzw. VAR_DIR)          private_media, tile_cache, private_mail (nur Entwicklung)
 
-Apache erhaelt nur `current/config/wsgi.py` und `current/staticfiles/`
-(`deployment/apache/adresskarte-mod_wsgi.conf.example`, Passenger: `deployment/passenger_wsgi.py.example`).
+Apache erhaelt nur den App-Einstieg und `current/staticfiles/`.
+Gewaehltes Profil auf dem Zielserver (ISPConfig, Debian 12): **Passenger** – Startdatei `passenger_wsgi.py` im
+Release, Direktiven `deployment/apache/adresskarte-passenger-ispconfig.directives.example`, App-Neustart per
+`shared/tmp/restart.txt`. mod_wsgi ist dort ungeeignet (Konflikt mit mod_python; Apache startet nicht).
+Alternative Vorlage fuer andere Server: `deployment/apache/adresskarte-mod_wsgi.conf.example`.
 
 ## Ablauf
 

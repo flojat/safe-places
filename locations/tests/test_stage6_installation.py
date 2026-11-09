@@ -25,7 +25,7 @@ HOST = "db.intern.example"
 def write_config(directory: Path, environment="production", extra="", hosting=None):
     env = (f"ENVIRONMENT={environment}\nDJANGO_SECRET_KEY={'k' * 60}\nDB_NAME=prod_db\nDB_USER=prod_user\n"
            f"DB_PASSWORD={SECRET}\nDB_HOST={HOST}\nALLOWED_HOSTS=karte.example.org\nEMAIL_HOST=smtp.example.org\n"
-           f"DEFAULT_FROM_EMAIL=noreply@example.org\n{extra}")
+           f"DEFAULT_FROM_EMAIL=noreply@example.org\nVAR_DIR=/srv/app/shared/var\n{extra}")
     path = directory / ".env"
     path.write_text(env)
     os.chmod(path, 0o600)
@@ -115,6 +115,14 @@ class PreflightTests(SimpleTestCase):
                 _, codes = self._run(d)
             self.assertEqual(codes["WSGI_PROFILE"].status, "PASS")
             self.assertEqual(codes["WSGI_RUNTIME"].status, "UNKNOWN")
+
+    def test_relative_var_dir_fails_in_production(self):
+        with tempfile.TemporaryDirectory() as d:
+            write_config(Path(d), extra="")
+            env = (Path(d) / ".env").read_text().replace("VAR_DIR=/srv/app/shared/var", "VAR_DIR=var")
+            (Path(d) / ".env").write_text(env)
+            _, codes = self._run(d)
+            self.assertEqual(codes["CONFIG_VAR_DIR"].status, "FAIL")
 
     def test_environment_mismatch_fails(self):
         with tempfile.TemporaryDirectory() as d:

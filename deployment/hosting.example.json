@@ -1,11 +1,11 @@
 {
-  "_hinweis": "Kopie als <app-home>/shared/config/hosting.local.json (nicht in Git). Nur vom Betreiber/Hoster bestaetigte Angaben eintragen.",
-  "wsgi_profile": "mod_wsgi",
+  "_hinweis": "Kopie als <app-home>/shared/config/hosting.local.json (nicht in Git). Nur vom Betreiber bestaetigte Angaben eintragen.",
+  "wsgi_profile": "passenger",
   "operator_confirmed": false,
-  "python_for_wsgi": "<pfad-zum-basis-python-passend-zu-mod_wsgi>",
+  "python_for_wsgi": "<app-home>/current/.venv/bin/python",
   "reload": {
     "type": "touch",
-    "path": "current/config/wsgi.py",
+    "path": "shared/tmp/restart.txt",
     "operator_confirmed": false
   },
   "smtp_verified": false,

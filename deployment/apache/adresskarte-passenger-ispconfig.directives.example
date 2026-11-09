@@ -1,0 +1,38 @@
+# ISPConfig -> Websites -> <Website> -> Optionen -> "Apache-Direktiven"
+# Nur fuer diese Website. Platzhalter <...> ersetzen:
+#   <WEBROOT>  = echter Website-Pfad, z. B. /var/www/clients/clientN/webN (nicht der /var/www/<domain>-Symlink)
+#   <WEBUSER>  = Website-Benutzer (z. B. webN), <WEBGROUP> = Kundengruppe (z. B. clientN)
+# Voraussetzung: libapache2-mod-passenger aktiv (Debian 12: Passenger 6.0.17). mod_wsgi NICHT installieren
+# (Konflikt mit dem von ISPConfig geladenen mod_python legt Apache lahm).
+
+PassengerEnabled on
+PassengerAppType wsgi
+PassengerAppRoot <WEBROOT>/private/adresskarte/current
+PassengerStartupFile passenger_wsgi.py
+PassengerPython <WEBROOT>/private/adresskarte/current/.venv/bin/python
+PassengerUser <WEBUSER>
+PassengerGroup <WEBGROUP>
+PassengerAppEnv production
+# Dokumentierter App-Neustart ohne Apache-Neustart: touch <WEBROOT>/private/adresskarte/shared/tmp/restart.txt
+PassengerRestartDir <WEBROOT>/private/adresskarte/shared/tmp
+PassengerFriendlyErrorPages off
+PassengerMinInstances 1
+
+# Gepruefte statische Dateien direkt durch Apache (nicht durch die App).
+Alias /static/ <WEBROOT>/private/adresskarte/current/staticfiles/
+<Location /static/>
+    PassengerEnabled off
+</Location>
+<Directory <WEBROOT>/private/adresskarte/current/staticfiles>
+    Require all granted
+    Options -Indexes -FollowSymLinks
+</Directory>
+
+# Uploads: 10 MiB Bild + Formular
+LimitRequestBody 11534336
+
+# Hinweise:
+# - Passenger liefert vorhandene Dateien aus dem DocumentRoot (<WEBROOT>/web) direkt aus. Dort duerfen
+#   keine veralteten ISPConfig-Standardseiten (index.html, standard_index.html) oder privaten Dateien liegen.
+# - Kein Alias fuer /media, private/, var oder shared/. Private Medien nur ueber die Django-Views.
+# - PHP fuer diese Website in ISPConfig deaktivieren, wenn nicht benoetigt.
