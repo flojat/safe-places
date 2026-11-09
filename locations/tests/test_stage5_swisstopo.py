@@ -141,6 +141,17 @@ class GatewayTests(CacheIsolationMixin, TestCase):
             self.assertEqual(Client().get(self.url).status_code, 403)
         upstream.assert_not_called()
 
+    def test_cache_dirs_private_despite_umask(self):
+        old = os.umask(0o022)
+        try:
+            with mock.patch(OPEN, side_effect=ok_tile):
+                self.client.get(self.url)
+        finally:
+            os.umask(old)
+        root = Path(settings.VAR_DIR) / settings.TILE_CACHE_DIR_NAME
+        for d in [root] + [p for p in root.rglob("*") if p.is_dir()]:
+            self.assertEqual(d.stat().st_mode & 0o077, 0, str(d))
+
     def test_cache_contains_only_basemap_tiles(self):
         with mock.patch(OPEN, side_effect=ok_tile):
             self.client.get(self.url)

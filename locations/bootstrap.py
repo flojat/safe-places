@@ -50,9 +50,15 @@ def load_manifest(path: str | Path) -> list[ManifestEntry]:
     """Format: {"accounts": [{"email": "...", "role": "visitor|object_manager|editor|admin"}]}
     Genau vier Eintraege, jede Rolle genau einmal. Fehlermeldungen nennen keine Adressen."""
     try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise ManifestError("Manifest nicht lesbar oder kein JSON") from exc
+        text = Path(path).read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise ManifestError("Manifest-Datei nicht gefunden (absoluten Pfad verwenden)") from exc
+    except OSError as exc:
+        raise ManifestError("Manifest-Datei nicht lesbar (Rechte pruefen)") from exc
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        raise ManifestError("Manifest ist kein gueltiges JSON") from exc
     if isinstance(data, dict):
         data = {k: v for k, v in data.items() if not k.startswith("_")}  # Kommentarfelder
     accounts = data.get("accounts") if isinstance(data, dict) else None

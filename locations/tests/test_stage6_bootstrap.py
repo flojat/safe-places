@@ -128,6 +128,11 @@ class ProvisioningTests(TestCase):
             self.assertNotIn("@", str(ctx.exception))
         self.assertFalse(User.objects.exists())
 
+    def test_missing_manifest_message_is_specific(self):
+        with self.assertRaisesMessage(CommandError, "nicht gefunden"):
+            call_command("provision_initial_accounts", "--manifest", "/gibt/es/nicht.json",
+                         "--environment", "local", stdout=StringIO())
+
     def test_environment_mismatch_refused(self):
         with self.assertRaises(CommandError):
             call_command("provision_initial_accounts", "--manifest", manifest_file(),

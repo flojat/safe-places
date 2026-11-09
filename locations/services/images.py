@@ -104,7 +104,12 @@ def process_upload(data: bytes) -> ProcessedImage:
     storage_key = secrets.token_hex(16)
     final_dir = storage_dir(storage_key)
     tmp_dir = final_dir.with_name(final_dir.name + ".tmp")
-    tmp_dir.mkdir(parents=True, mode=0o700)
+    from ..fsutil import make_private_dirs
+
+    media_root = Path(settings.PRIVATE_MEDIA_ROOT).resolve()
+    make_private_dirs(tmp_dir.parent, media_root)
+    tmp_dir.mkdir(mode=0o700)
+    os.chmod(tmp_dir, 0o700)
     try:
         for name, edge in VARIANTS.items():
             variant = img.copy()

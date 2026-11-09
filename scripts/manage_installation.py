@@ -440,6 +440,12 @@ def mode_doctor(args, report: Report, root: Path = PROJECT) -> None:
                    "Initialkonten: " + (", ".join(f"{k}={v}" for k, v in sorted(status["initial_accounts"].items())) or "keine"),
                    "provision_initial_accounts und Aktivierung des ersten Administrators")
         report.add("TILE_SOURCE", "PASS", f"Kartenquelle {status['tile_source']}")
+        profile = status.get("smtp_tls_profile", "default")
+        if profile == "legacy_dh":
+            report.add("SMTP_TLS", "WARN", "SMTP-TLS abgeschwaecht (legacy_dh, Sicherheitsstufe 1; Zertifikatspruefung aktiv)",
+                       "Mailserver mit >= 2048-Bit-DH oder ECDHE konfigurieren lassen, dann Profil entfernen")
+        else:
+            report.add("SMTP_TLS", "PASS", f"SMTP-TLS-Profil {profile} (Zertifikatspruefung aktiv)")
     except (ValueError, IndexError, KeyError):
         report.add("SETTINGS_PROBE", "UNKNOWN", "Statusabfrage nicht auswertbar: " + _tail(probe.stderr))
     var_dir = root / values.get("VAR_DIR", "var") if values else root / "var"

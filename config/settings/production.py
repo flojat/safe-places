@@ -28,9 +28,13 @@ SECURE_HSTS_PRELOAD = False
 if ENV.get_bool("TRUST_X_FORWARDED_PROTO", False):
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-EMAIL_BACKEND = ENV.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
-if EMAIL_BACKEND != "django.core.mail.backends.smtp.EmailBackend":
+EMAIL_BACKEND = ENV.get("EMAIL_BACKEND", "locations.mail_backend.EmailBackend")
+if EMAIL_BACKEND not in ("locations.mail_backend.EmailBackend", "django.core.mail.backends.smtp.EmailBackend"):
     raise ImproperlyConfigured("Produktiv ist nur das SMTP-Mailbackend zulaessig.")
+EMAIL_TLS_PROFILE = ENV.get("EMAIL_TLS_PROFILE", "default")
+if EMAIL_TLS_PROFILE not in ("default", "no_dhe", "legacy_dh"):
+    raise ImproperlyConfigured("EMAIL_TLS_PROFILE muss default, no_dhe oder legacy_dh sein.")
+EMAIL_TLS_CAFILE = ENV.get("EMAIL_TLS_CAFILE", "")
 EMAIL_HOST = ENV.require("EMAIL_HOST")
 EMAIL_PORT = ENV.get_int("EMAIL_PORT", 587)
 EMAIL_HOST_USER = ENV.get("EMAIL_HOST_USER", "")

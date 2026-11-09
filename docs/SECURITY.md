@@ -30,4 +30,8 @@ W004 solange `SECURE_HSTS_SECONDS` nicht gesetzt ist (erst nach geprueftem HTTPS
   ausfiltern (Vorlage).
 - Konto-Objekt-Buchungen sind Nutzungsdaten (Bereinigung nach Ablauf + 48 h).
 - swisstopo-Proxy/Cache: Bedingungen nicht abschliessend geklaert (vor Veroeffentlichung pruefen).
+- SMTP-TLS: Zertifikats- und Hostnamenpruefung sind fest aktiv. Fuer einen nicht selbst betriebenen MX mit
+  schwachen DH-Parametern gibt es `EMAIL_TLS_PROFILE=no_dhe` (nur ECDHE, keine Absenkung) und als bewusste,
+  vom Betreiber entschiedene Abschwaechung `legacy_dh` (OpenSSL-Sicherheitsstufe 1 nur fuer SMTP; `doctor` WARN).
+  Interne CA ueber `EMAIL_TLS_CAFILE` statt Abschalten der Pruefung.
 - Nicht geprueft: echtes Apache/WSGI, HTTPS, SMTP, Hosting-Rechte, Lasttests, Penetrationstest.

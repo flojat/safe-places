@@ -18,4 +18,5 @@ class Command(BaseCommand):
             "admin_ready": bootstrap.admin_ready(),
             "initial_accounts": bootstrap.status_report(),
             "tile_source": settings.MAP_TILE_SOURCE,
+            "smtp_tls_profile": getattr(settings, "EMAIL_TLS_PROFILE", "default"),
         }))

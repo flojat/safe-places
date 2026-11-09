@@ -173,7 +173,9 @@ def _read_fresh(path: Path) -> bytes | None:
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    from ..fsutil import make_private_dirs
+
+    make_private_dirs(path.parent, Path(settings.VAR_DIR))
     tmp = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as handle:

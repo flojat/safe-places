@@ -321,6 +321,18 @@ class ImageProcessingTests(TestCase):
         with self.assertRaises(images.ImageRejected):
             images.process_upload(bomb.getvalue())
 
+    def test_media_dirs_private_despite_umask(self):
+        import os
+
+        old = os.umask(0o022)
+        try:
+            result = images.process_upload(image_bytes())
+        finally:
+            os.umask(old)
+        d = images.storage_dir(result.storage_key)
+        for p in (d, d.parent):
+            self.assertEqual(p.stat().st_mode & 0o077, 0, str(p))
+
     def test_storage_paths_cannot_escape(self):
         for key in ("../../etc", "a" * 31, "G" * 32, "", "../" + "a" * 29):
             with self.subTest(key=key), self.assertRaises(ValueError):
