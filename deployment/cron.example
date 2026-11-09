@@ -1,0 +1,6 @@
+# Wartung per bestehendem Hosting-Cron (kein System-Cron durch den Installer).
+# Pfade/Interpreter durch den Betreiber anpassen.
+# m  h    dom mon dow  befehl
+17   *    *   *   *    cd <APP_HOME>/current && ADRESSKARTE_ENV_FILE=<APP_HOME>/shared/config/.env DJANGO_SETTINGS_MODULE=config.settings.production .venv/bin/python manage.py cleanup_security_state
+41   */6  *   *   *    cd <APP_HOME>/current && ADRESSKARTE_ENV_FILE=<APP_HOME>/shared/config/.env DJANGO_SETTINGS_MODULE=config.settings.production .venv/bin/python manage.py check_tile_cache_update
+53   3    *   *   *    cd <APP_HOME>/current && ADRESSKARTE_ENV_FILE=<APP_HOME>/shared/config/.env DJANGO_SETTINGS_MODULE=config.settings.production .venv/bin/python manage.py cleanup_tile_cache

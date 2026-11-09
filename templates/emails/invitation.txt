@@ -1,0 +1,11 @@
+Guten Tag
+
+Für Sie wurde ein Konto bei der Adresskarte vorbereitet. Bitte aktivieren Sie es:
+
+{{ link }}
+
+Der Link ist {{ hours }} Stunden gültig und nur einmal verwendbar. Auf der Seite setzen Sie Ihr Passwort.
+Danach melden Sie sich an und wählen als zweiten Anmeldeschritt E-Mail-Code oder Authenticator-App.
+Ihre vorgesehenen Rechte werden erst danach freigeschaltet.
+
+Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese E-Mail.

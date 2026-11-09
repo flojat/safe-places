@@ -22,14 +22,14 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 
 | Etappe | Inhalt | Status |
 |---|---|---|
-| 0 | Preflight/Hostingpruefung (`scripts/manage_installation.py`) | OFFEN |
+| 0 | Preflight/Hostingpruefung (`scripts/manage_installation.py`) | umgesetzt (Etappe 6); Zielhosting nicht geprueft |
 | 0/1 | Projektgeruest, Lockdateien mit Hashes, Settings local/test/production, Benutzermodell, erste Migrationen | umgesetzt (siehe Pruefungen) |
 | 1 | Datenmodell Objekt/Anbieter/Snapshot/Foto, drei Projektionen, Gastkarte/-liste, Leaflet lokal, seed_demo | umgesetzt; Gast-Requestlimits und Bildverarbeitung OFFEN (Etappe 3) |
 | 2 | Registrierung, E-Mail-Bestaetigung, E-Mail-/TOTP-Login, Sitzungsschutz, Passwortreset, atomarer Limiter | umgesetzt; offen: Faktorwechsel/E-Mail-Aenderung mit frischer Reauth, Benachrichtigungsmails, Recovery-Code-Nutzungsprotokoll (Etappe 4/6) |
 | 3 | Freigabebuchungen/Kontingente, Mitgliedsdetails mit Kontakten, sichere Bildverarbeitung, Fotoauslieferung, Gast-/Mitglieds-Requestlimits | umgesetzt; Upload-UI folgt mit Etappe 4 (Portal) |
 | 4 | Betreuerportal, Redaktion (Fassungsvergleich/Freigabe/Zurueckweisung), Administration (Rollen/Sperren), frische Bestaetigung, E-Mail-Aenderung | umgesetzt; offen: Benachrichtigung bei Faktoraenderung/Recovery-Code-Nutzung per Mail, zusaetzlichen Faktor nachtraeglich einrichten, administrativer Recovery-Prozess (Etappe 6/7) |
 | 5 | swisstopo-Gateway mit Cache/Generationen, globale Provider-Budgets und Slots, cacheUpdate-Pruefung, Adresssuche im Arbeitsbereich | umgesetzt (gemockt getestet); echter Smoke-Test BLOCKIERT bis Freigabe; lokal weiterhin `MAP_TILE_SOURCE=local_test` |
-| 6 | Initialkonten, Aktivierung, Installations-/Deploymentroutine | OFFEN |
+| 6 | Initialkonten (Provisionierung, Einladung, Aktivierung, Rollen nach zweitem Schritt), Installations-/Pruef-/Deploy-/Rollback-Routine, Hosting-Vorlagen | umgesetzt; echte Apache/WSGI- und SMTP-Pruefung BLOCKIERT (kein Hostingzugang) |
 | 7 | Konkurrenz-/Browsertests, Dokumentation | OFFEN |
 
 ## Tatsaechlich ausgefuehrte Pruefungen
@@ -61,8 +61,15 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-09 | Etappe 5: Testsuite 181 Tests (Provider gemockt: feste URL, Query-Parameter wirkungslos, Cachetreffer ohne Budget, ungueltige Antworten nicht gecacht aber gezaehlt, Budgetende = 0 Abrufe, Limiterausfall = kein Abruf, veraltete Kachel nicht ausgeliefert, nur Grundkarten im Cache, keine Providerreferenz im Browser-JS, Weiterleitungen verweigert, Slots/Leases, Generation bei cacheUpdate-Aenderung, Cache-Bereinigung; parallel: gleicher Miss genau 1 Abruf, max. gleichzeitige Abrufe, globales Budget unter Last; Adresssuche nur Betreuer eigenes Objekt/Redaktion, feste Parameter, HTML entfernt, Koordinaten validiert, kein Logging, Konto-/REST-Budget), 2x; Concurrency 6x | BESTANDEN |
 | 2026-11-09 | VORFALL: ein ungemockter Altest aus Etappe 1 (`MAP_TILE_SOURCE=swisstopo`) loeste in 2 Gesamtlaeufen vermutlich je 1 echten Kachelabruf an wmts.geo.admin.ch aus (nicht freigegeben, max. 2 Abrufe). Behoben: harte Netzwerksperre `SWISSTOPO_NETWORK_ENABLED=False` in Testsettings, Test prueft fehlenden Netzzugriff | behoben |
 | 2026-11-09 | Echter swisstopo-Smoke-Test nach Freigabe (separat, genau 3 Abrufe ueber Anwendungscode): Kachel z12 Bern = gueltiges JPEG 33.6 KB/0.11 s; cacheUpdate = 2026-11-06T13:57:25 (erste Pruefung -> Generation 2); SearchServer "Bundesplatz 3 Bern" = 5 Treffer, erster in CH-Rechteck; Budgetzaehlung 1 Kachel/2 REST | BESTANDEN |
-| – | `check --deploy` mit Produktionssettings | OFFEN |
-| – | Apache/WSGI-End-to-End | BLOCKIERT (kein Hostingzugang, Profil unbestaetigt) |
+| 2026-11-09 | Etappe 6: 21 Bootstrap-Tests (Plan ohne Aenderung/Adressen, pending ohne Passwort/Rechte, Wiederholung ohne Reset/Entsperren, Konflikt bei Fremdregistrierung inkl. Gross-/Kleinschreibung, keine Wiederherstellung geloeschter Konten, Manifestfehler ohne Adressen, Umgebungsabgleich, GET verbraucht nichts, einmalige Aktivierung, neue Einladung invalidiert alte, Token nicht als Verifikation/fremde Umgebung nutzbar, Reset umgeht Aktivierung nicht, SMTP-Fehler bleibt pending, Produktionsversand nur mit Bestaetigung, Rollen erst nach TOTP/E-Mail-Einrichtung, Registrierung erst nach aktivem Admin, parallele Provisionierung ohne Duplikate) | BESTANDEN |
+| 2026-11-09 | Etappe 6: 17 Tests Installationsroutine (Redaktion in Berichten, lesender Preflight, BLOCKED ohne WSGI, Umgebungsabgleich, Vendor-Manipulation, Backup-Pflicht, Plan/Apply, PREPARED_NOT_ACTIVATED, Ref-Aenderung zwischen Plan/Apply, Ref-Injektion, Lock, Symlink-Ausbruch im Archiv, Reload-Fehler mit Rueckverlinkung, Rollback bei neuerem Schema verweigert, Bedienfehler) | BESTANDEN |
+| 2026-11-09 | Lokal echt ausgefuehrt: `preflight`, `install --plan`, `doctor` (local); echter `deploy --plan/--apply` in temporaeres app-home (Git-Export, neue venv, Hash-Installation, collectstatic, Symlink, simulierter Reload) | BESTANDEN (WSGI-Ausfuehrung UNKNOWN) |
+| 2026-11-09 | `manage.py check --deploy` mit Produktionssettings und synthetischen Werten: nur W005/W021 (HSTS-Subdomains/Preload bewusst aus); ohne HSTS-Sekunden zusaetzlich W004; Test-Mailbackend wird abgewiesen | BESTANDEN mit bewerteten Hinweisen |
+| 2026-11-09 | Gesamtsuite 219 Tests, 2x | BESTANDEN |
+| 2026-11-09 | Gefunden/behoben: Testsettings uebernahmen `MAP_TILE_SOURCE` aus der lokalen .env (Netzsperre griff, keine Abrufe); Testsettings fixieren jetzt Kartenquelle und Registrierungssperre | behoben |
+| 2026-11-09 | Lokale Initialkonten aus privatem Manifest provisioniert (4x create) und Einladungen in die lokale Datei-Mailablage versendet (keine echte Zustellung); Status invited | erledigt |
+| 2026-11-09 | Gefunden/behoben: lokale Mailablage war 0755 (Einladungslinks fuer andere Benutzer lesbar) -> 0700, local.py erzwingt 0700, `doctor` warnt bei Gruppen-/Fremdzugriff | behoben |
+| – | Apache/WSGI-End-to-End auf Zielhosting | BLOCKIERT (kein Hostingzugang) |
 | – | Echte SMTP-Zustellung | BLOCKIERT (keine Konfiguration/Freigabe) |
 
 ## Entscheidungen

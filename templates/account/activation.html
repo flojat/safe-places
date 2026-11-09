@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth">
+  <h1>Konto aktivieren</h1>
+  <p>Setzen Sie Ihr Passwort. Danach melden Sie sich an und richten den zweiten Anmeldeschritt ein (E-Mail-Code oder Authenticator-App). Rechte werden erst danach freigeschaltet.</p>
+  <form method="post" novalidate>{% csrf_token %}{{ form.as_div }}<button type="submit">Passwort setzen und aktivieren</button></form>
+</section>
+{% endblock %}

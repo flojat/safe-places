@@ -1,0 +1,12 @@
+# Vorlage fuer einen vom Hoster bereitgestellten Passenger-Python-App-Betrieb.
+# Als passenger_wsgi.py im vom Hoster vorgegebenen App-Verzeichnis ablegen; der
+# Passenger-Interpreter muss auf <APP_HOME>/current/.venv/bin/python zeigen.
+import os
+import sys
+
+APP = "<APP_HOME>/current"
+sys.path.insert(0, APP)
+os.environ.setdefault("ADRESSKARTE_ENV_FILE", "<APP_HOME>/shared/config/.env")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
+
+from config.wsgi import application  # noqa: E402,F401

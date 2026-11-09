@@ -1,0 +1,9 @@
+{
+  "_hinweis": "Beispiel mit reservierten Domains. Echte Adressen nur in initial_accounts.local.json (nicht in Git, Rechte 0600).",
+  "accounts": [
+    {"email": "besucher@example.org", "role": "visitor"},
+    {"email": "objektverwalter@example.org", "role": "object_manager"},
+    {"email": "redaktor@example.org", "role": "editor"},
+    {"email": "administrator@example.org", "role": "admin"}
+  ]
+}

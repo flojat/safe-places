@@ -49,6 +49,10 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 - `locations/services/swisstopo.py`: Gateway/Cache/Budgets/Adresssuche; einzige Netzwerkfunktion `_open`
   (in Tests immer mocken; `SWISSTOPO_NETWORK_ENABLED=False` in Testsettings sperrt echte Abrufe).
 - Kartenquelle: `MAP_TILE_SOURCE=local_test|swisstopo` in `.env`.
+- `locations/bootstrap.py`: Initialkonten (`provision_initial_accounts`, `send_initial_invitations`); privates
+  Manifest `initial_accounts.local.json` nie lesen/ausgeben/committen.
+- `scripts/manage_installation.py`: preflight/install/doctor/deploy/rollback (nur stdlib); Tests in
+  `locations/tests/test_stage6_installation.py`. Doku: docs/INSTALLATION.md, DEPLOYMENT.md, HOSTING_CHECK.md.
 - Wartung: `manage.py cleanup_security_state`, `check_tile_cache_update`, `cleanup_tile_cache` (per Hosting-Cron).
 - Testhilfen fuer echte Login-Ablaeufe: `locations/tests/helpers_auth.py`.
 - Tests markieren interne Werte mit `CANARY-`, Mitgliedswerte mit `MITGLIEDERDETAIL-`.

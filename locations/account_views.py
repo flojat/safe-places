@@ -186,6 +186,9 @@ class LoginView(tf_core.LoginView):
                                   detail="mfa" if getattr(user, "otp_device", None) else "setup_pending")
         if not getattr(user, "otp_device", None):
             return redirect("two_factor:setup")
+        from .bootstrap import finalize_roles
+
+        finalize_roles(user)
         return response
 
     def get_context_data(self, form, **kwargs):
@@ -259,8 +262,11 @@ class SetupView(tf_core.SetupView):
         return context
 
     def done(self, form_list, **kwargs):
+        from .bootstrap import finalize_roles
+
         response = super().done(form_list, **kwargs)
         user = self.request.user
+        finalize_roles(user)  # Initialkonto: Zielrolle erst jetzt
         auth_flows.rotate_security_generation(user, self.request)
         AuditEvent.objects.create(actor=user, action="factor_added", target_type="user",
                                   target_id=str(user.pk), detail=self.get_method().code)
@@ -327,6 +333,12 @@ class RegistrationForm(forms.Form):
 @never_cache
 @require_http_methods(["GET", "POST"])
 def register(request):
+    from django.conf import settings as dj_settings
+
+    from .bootstrap import admin_ready
+
+    if dj_settings.REGISTRATION_REQUIRES_ADMIN and not admin_ready():
+        return _no_store(render(request, "account/registration_closed.html", status=503))
     if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
@@ -560,3 +572,62 @@ def email_change_confirm(request):
     if not token:
         return _no_store(render(request, "account/verify_invalid.html", status=400))
     return _no_store(render(request, "account/email_change_confirm.html"))
+
+
+# --- Aktivierung von Initialkonten (Einladung) ----------------------------------
+
+class ActivationForm(forms.Form):
+    password1 = forms.CharField(label="Neues Passwort", strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+    password2 = forms.CharField(label="Passwort wiederholen", strip=False, widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}))
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean(self):
+        data = super().clean()
+        if data.get("password1") and data.get("password1") != data.get("password2"):
+            self.add_error("password2", "Die Passwoerter stimmen nicht ueberein.")
+        elif data.get("password1"):
+            try:
+                validate_password(data["password1"], self.user)
+            except ValidationError as exc:
+                self.add_error("password1", exc)
+        return data
+
+
+@never_cache
+@require_http_methods(["GET"])
+def activate_token(request, token: str):
+    from .bootstrap import SESSION_INVITE
+
+    request.session[SESSION_INVITE] = token
+    response = _no_store(redirect("account:activate"))
+    response["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def activate(request):
+    """GET zeigt nur das Formular (Mail-Scanner verbrauchen nichts); POST aktiviert einmalig."""
+    from .bootstrap import SESSION_INVITE, InvitationError, accept_invitation, check_invitation
+
+    token = request.session.get(SESSION_INVITE)
+    try:
+        record = check_invitation(token) if token else None
+    except InvitationError:
+        record = None
+    if record is None:
+        request.session.pop(SESSION_INVITE, None)
+        return _no_store(render(request, "account/activation_invalid.html", status=400))
+    form = ActivationForm(request.POST or None, user=record.user)
+    if request.method == "POST" and form.is_valid():
+        try:
+            accept_invitation(token, form.cleaned_data["password1"])
+        except InvitationError:
+            return _no_store(render(request, "account/activation_invalid.html", status=400))
+        finally:
+            request.session.pop(SESSION_INVITE, None)
+        return _no_store(render(request, "account/activation_done.html"))
+    return _no_store(render(request, "account/activation.html", {"form": form}))

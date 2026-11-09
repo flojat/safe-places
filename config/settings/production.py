@@ -42,3 +42,6 @@ if not (EMAIL_USE_TLS or EMAIL_USE_SSL):
 DEFAULT_FROM_EMAIL = ENV.require("DEFAULT_FROM_EMAIL")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 OTP_EMAIL_SENDER = DEFAULT_FROM_EMAIL
+
+if not REGISTRATION_REQUIRES_ADMIN:  # noqa: F405
+    raise ImproperlyConfigured("Produktiv muss die Registrierung bis zum aktiven Administrator geschlossen sein.")

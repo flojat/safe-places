@@ -279,3 +279,8 @@ RATE_LIMITS.update({
     "provider_rest_global": [(20, _M), (200, _D)],
     "geocode_account": [(6, _M)],
 })
+
+# Etappe 6: Initialkonten
+INVITATION_MAX_AGE = ENV.get_int("INVITATION_MAX_AGE_HOURS", 24) * 3600
+# Registrierung erst nach aktivem Administrator (Bootstrap abgeschlossen); lokal abschaltbar.
+REGISTRATION_REQUIRES_ADMIN = ENV.get_bool("REGISTRATION_REQUIRES_ADMIN", ENVIRONMENT == "production")

@@ -1,0 +1,13 @@
+{
+  "_hinweis": "Kopie als <app-home>/shared/config/hosting.local.json (nicht in Git). Nur vom Betreiber/Hoster bestaetigte Angaben eintragen.",
+  "wsgi_profile": "mod_wsgi",
+  "operator_confirmed": false,
+  "python_for_wsgi": "<pfad-zum-basis-python-passend-zu-mod_wsgi>",
+  "reload": {
+    "type": "touch",
+    "path": "current/config/wsgi.py",
+    "operator_confirmed": false
+  },
+  "smtp_verified": false,
+  "cron_available": false
+}

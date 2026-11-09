@@ -455,3 +455,46 @@ class TileCacheState(models.Model):
     generation = models.PositiveIntegerField(default=1)
     provider_cache_update = models.CharField(max_length=40, blank=True)
     last_checked_at = models.DateTimeField(null=True, blank=True)
+
+
+# ---------------------------------------------------------------------------
+# Etappe 6: Initialkonten (ausdruecklicher Bootstrap)
+# ---------------------------------------------------------------------------
+
+
+class InitialAccount(models.Model):
+    """Durch provision_initial_accounts angelegte Identitaet mit geschuetzt hinterlegter Zielrolle.
+
+    Die Rolle wird erst nach Aktivierung (Passwort, E-Mail) UND eingerichtetem zweiten
+    Schritt vergeben; sie stammt nie aus Token, Registrierung oder Mailadresse.
+    """
+
+    class Role(models.TextChoices):
+        VISITOR = "visitor", "Besucher"
+        OBJECT_MANAGER = "object_manager", "Objektbetreuung"
+        EDITOR = "editor", "Redaktion"
+        ADMIN = "admin", "Administration"
+
+    class State(models.TextChoices):
+        PROVISIONED = "provisioned", "Vorbereitet"
+        INVITED = "invited", "Eingeladen"
+        ACTIVATED = "activated", "Aktiviert, zweiter Schritt ausstehend"
+        COMPLETE = "complete", "Abgeschlossen"
+        CONFLICT = "conflict", "Konflikt"
+        REMOVED = "removed", "Konto entfernt"
+
+    email = models.EmailField(unique=True)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                on_delete=models.SET_NULL, related_name="initial_account")
+    target_role = models.CharField(max_length=16, choices=Role.choices)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.PROVISIONED)
+    environment = models.CharField(max_length=20)
+    invitation_generation = models.PositiveIntegerField(default=0)
+    provisioned_at = models.DateTimeField()
+    invited_at = models.DateTimeField(null=True, blank=True)
+    activated_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Initialkonto"
+        verbose_name_plural = "Initialkonten"

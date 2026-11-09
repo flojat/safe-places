@@ -1,0 +1,42 @@
+# Vorlage fuer Apache + mod_wsgi (Daemonmodus). NICHT ungeprueft uebernehmen.
+# Platzhalter <...> durch den Betreiber/Hoster ersetzen; bestehende VHosts nicht ueberschreiben.
+# mod_wsgi muss gegen dasselbe Python (Major/Minor) gebaut sein wie die venv im Release.
+
+<VirtualHost *:443>
+    ServerName <hostname>
+    # TLS-Konfiguration gemaess Hoster (Zertifikate, Protokolle)
+
+    WSGIDaemonProcess adresskarte \
+        python-home=<APP_HOME>/current/.venv \
+        python-path=<APP_HOME>/current \
+        processes=2 threads=5 umask=0077 lang=C.UTF-8 locale=C.UTF-8 \
+        display-name=%{GROUP}
+    WSGIProcessGroup adresskarte
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIScriptAlias / <APP_HOME>/current/config/wsgi.py process-group=adresskarte
+    WSGIPassAuthorization Off
+
+    <Directory <APP_HOME>/current/config>
+        <Files wsgi.py>
+            Require all granted
+        </Files>
+    </Directory>
+
+    # Nur gepruefte statische Dateien direkt ausliefern.
+    Alias /static/ <APP_HOME>/current/staticfiles/
+    <Directory <APP_HOME>/current/staticfiles>
+        Require all granted
+        Options -Indexes -FollowSymLinks
+    </Directory>
+
+    # KEIN Alias fuer /media, var, shared, repository, releases, Tile-Cache oder Backups.
+    # Private Medien und Kacheln werden ausschliesslich ueber Django-Views ausgeliefert.
+
+    # Uploads: 10 MiB Bild + Formular
+    LimitRequestBody 11534336
+
+    # Tokenhaltige URLs nicht ins Zugriffslog schreiben.
+    SetEnvIf Request_URI "^/konto/(email-bestaetigen|email-aendern|aktivieren|passwort-neu)/" token_url
+    CustomLog <LOGDIR>/adresskarte-access.log combined env=!token_url
+    ErrorLog <LOGDIR>/adresskarte-error.log
+</VirtualHost>

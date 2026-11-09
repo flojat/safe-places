@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth"><h1>Konto aktiviert</h1>
+<p>Melden Sie sich jetzt an und richten Sie den zweiten Anmeldeschritt ein.</p>
+<p><a href="{% url 'two_factor:login' %}">Zur Anmeldung</a></p></section>
+{% endblock %}
