@@ -96,6 +96,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-10 | Bildergalerie (Lightbox, `static/js/gallery.js`) auf Vorschau, Mitgliederdetail und Listenkarten; Inhalt je Berechtigung (Gaeste/Mitglieder ohne Buchung: Gastbilder; mit Buchung: Gast- und Mitgliederbilder; nie intern). **Betreiberentscheid:** Gastbilder auch in Galeriegroesse (1600 px) fuer alle. Alt-Text heisst "Bildbeschreibung" (Bildunterschrift + Alt). Pflichtbestaetigung Bildrechte beim Upload (Portal + Verwaltung, `rights_confirmed_at`, Protokoll) und Copyright-Hinweis; Migration 0012; 296 Tests inkl. Browsertest Lightbox | BESTANDEN (Zielserver ausstehend) |
 | 2026-11-10 | Punktwahl auf Karte (Popup) neben der Adresssuche in Portal und Verwaltung, Koordinaten werden ins Formular uebernommen, Server prueft weiterhin; Grundkarte Luftbild (SWISSIMAGE `ch.swisstopo.swissimage`) umschaltbar auf Gastkarte, Detailkarte und Punktwahl, eigener Kachelweg `/map/luftbild/`, eigener Cache/Generation, cacheUpdate und Bereinigung je Layer; 306 Tests inkl. Browsertests (Testkacheln). Realer Abruf SWISSIMAGE noch nicht geprueft (Smoke-Test auf Zielserver nach Freigabe) | BESTANDEN lokal |
 | 2026-11-10 | Beobachtet: in Browsertests vereinzelt "Internal Server Error" auf Kachelwegen bei parallelen Abrufen (Live-Testserver), schon vor dieser Aenderung; Tests bestehen | OFFEN (untersuchen) |
+| 2026-11-10 | Zielserver rc6: Backup, `deploy --apply --migrate --backup-confirmed` (0009-0012), `ensure_role_groups`, check --deploy ohne Hinweise (2 silenced), `check_tile_cache_update` beide Layer OK (SWISSIMAGE cacheUpdate real erreichbar), doctor WARN nur SMTP, Start 200 | BESTANDEN |
 | – | MX auf >= 2048-Bit-DH oder ECDHE aktualisieren lassen, danach `EMAIL_TLS_PROFILE=default` | OFFEN (externer MX-Betreiber) |
 
 ## Entscheidungen
@@ -177,7 +178,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 
 ## Stand Inbetriebnahme Zielserver (2026-11-10, Feierabend)
 
-Laeuft produktiv ueber Passenger, aktives Release **v0.5.0-rc5** (Initialkonten alle aktiv, Cronjobs per crontab, HSTS gesetzt); HTTPS, statische Dateien und Sperren der
+Laeuft produktiv ueber Passenger, aktives Release **v0.5.0-rc6** (Initialkonten alle aktiv, Cronjobs per crontab, HSTS gesetzt); HTTPS, statische Dateien und Sperren der
 privaten Pfade geprueft; SMTP-Testversand zugestellt (`EMAIL_TLS_PROFILE=legacy_dh`, siehe oben).
 
 Naechste Schritte (Befehle in der Sitzung vorbereitet, Ausfuehrung durch den Betreiber):
