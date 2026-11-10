@@ -132,8 +132,8 @@ def photo_access(request, photo: Photo, variant: str) -> bool:
     )
     if published is None:
         return False
-    if published.visibility == Photo.Visibility.GUEST_PREVIEW and variant == "thumb":
-        return True
+    if published.visibility == Photo.Visibility.GUEST_PREVIEW:
+        return True  # Gastbilder: Vorschau und Galeriegroesse fuer alle Besucher
     if published.visibility in (Photo.Visibility.GUEST_PREVIEW, Photo.Visibility.MEMBER_DETAIL):
         return valid_grant(request, published.published) is not None
     return False

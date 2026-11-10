@@ -17,7 +17,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from locations.geo import coarse_preview_point, to_coordinate
-from locations.models import Category, Location, Photo, Provider, PublishedLocation
+from locations.categories import DEFAULT_CATEGORIES, ensure_default_categories
+from locations.models import Location, Photo, Provider, PublishedLocation
 from locations.services import images, publishing
 
 REGIONS = [
@@ -26,7 +27,8 @@ REGIONS = [
     ("Genève", 46.2044, 6.1432), ("Lugano", 46.0037, 8.9511), ("Chur", 46.8508, 9.5320),
     ("Sion", 46.2331, 7.3606), ("Winterthur", 47.4988, 8.7237), ("Biel/Bienne", 47.1368, 7.2468),
 ]
-CATEGORIES = [c for c, _ in Category.choices]
+CATEGORIES = [slug for slug, _label, _icon, _order in DEFAULT_CATEGORIES]
+CATEGORY_LABELS = {slug: label for slug, label, _icon, _order in DEFAULT_CATEGORIES}
 SEED = 20261109
 
 # Erkennungsmerker fuer Tests (siehe locations/tests).
@@ -52,6 +54,7 @@ class Command(BaseCommand):
             raise CommandError("--count muss zwischen 1 und 500 liegen.")
         if rebuild_demo:
             self._remove_demo()
+        ensure_default_categories()  # Startkategorien fuer Demodaten (idempotent)
         rng = random.Random(SEED)
         approved_count = round(count * 0.9)
         created = skipped = published = 0
@@ -75,12 +78,13 @@ class Command(BaseCommand):
             lat = to_coordinate(round(base_lat + rng.uniform(-0.04, 0.04), 6), "lat")
             lon = to_coordinate(round(base_lon + rng.uniform(-0.05, 0.05), 6), "lon")
             category = CATEGORIES[rng.randrange(len(CATEGORIES))]
+            extra = rng.sample(CATEGORIES, rng.randrange(3))  # 0-2 weitere passende Kategorien
             external_id = f"demo-{n:03d}"
             if Location.objects.filter(external_id=external_id).exists():
                 skipped += 1
                 continue
 
-            label = dict(Category.choices)[category]
+            label = CATEGORY_LABELS[category]
             contacts_released = n % 5 != 0
             exact_released = n % 3 == 0
             p_lat, p_lon = coarse_preview_point(lat, lon)
@@ -89,7 +93,7 @@ class Command(BaseCommand):
                     external_id=external_id,
                     provider=providers[(n - 1) % len(providers)],
                     title=f"Demo-{label} {region} {n:03d}",
-                    category=category,
+                    categories=[category, *extra],
                     preview_text=f"Synthetischer Demo-Eintrag ({label}) in der Region {region}. Kein reales Angebot.",
                     long_description=(
                         f"{MEMBER_MARKER}{n:03d}: Ausführliche synthetische Beschreibung nur für "

@@ -1,6 +1,12 @@
 {% extends "admin/change_form.html" %}
+{% load static %}
+{% block extrahead %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'css/map_tools.css' %}">
+{% endblock %}
 {% block object-tools-items %}
-  {% if original %}<li><a href="{% url 'admin:locations_location_compare' original.pk %}">Fassungsvergleich und Freigabe</a></li>{% endif %}
+  {% if original %}<li><a href="{% url 'admin:locations_location_compare' original.pk %}">Fassungsvergleich und Freigabe</a></li>
+  <li><a href="{% url 'admin:locations_location_photos' original.pk %}">Fotos verwalten</a></li>{% endif %}
   {{ block.super }}
 {% endblock %}
 
@@ -8,12 +14,22 @@
   {{ block.super }}
   {% load static %}
   <fieldset class="module aligned">
-    <h2>Adresssuche (swisstopo)</h2>
+    <h2>Lage bestimmen: Adresssuche (swisstopo) oder Punkt auf Karte</h2>
     <div class="form-row geocode" data-geocode-url="{% url 'admin_geocode' %}" data-lat-field="id_exact_lat" data-lon-field="id_exact_lon">
       <input type="search" maxlength="100" aria-label="Adresse"> <button type="button">Adresse suchen</button>
       <p class="help">Beim Klick wird nur der Suchtext an swisstopo übermittelt. Manuelle Eingabe bleibt möglich.</p>
       <p class="geocode-status" aria-live="polite"></p><ol class="geocode-results"></ol>
     </div>
+    <div class="form-row">
+    <div class="location-picker" data-location-picker data-lat-field="id_exact_lat" data-lon-field="id_exact_lon">
+      <button type="button">Punkt auf Karte wählen</button>
+      <span class="muted">Alternative zur Adresssuche, z. B. für Waldhaus oder Grillplatz (Karte oder Luftbild).</span>
+      <p class="picker-status muted" aria-live="polite"></p>
+    </div>
+    </div>
   </fieldset>
   <script src="{% static 'js/geocode.js' %}"></script>
+  <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+  <script src="{% static 'js/basemaps.js' %}"></script>
+  <script src="{% static 'js/location_picker.js' %}"></script>
 {% endblock %}

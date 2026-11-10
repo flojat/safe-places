@@ -9,10 +9,19 @@ from __future__ import annotations
 from django.db.models import Prefetch, Q, QuerySet
 from django.urls import reverse
 
-from .models import Category, Photo, PublishedLocation, PublishedPhoto
+from . import categories as category_store
+from .models import Photo, PublishedLocation, PublishedPhoto
 
 # GAST: Vorschau. Keine Langbeschreibung, Kontakte, genaue Lage, interne Felder.
-GUEST_FIELDS = ("public_id", "title", "category", "preview_text", "place_text", "preview_lat", "preview_lon")
+GUEST_FIELDS = ("public_id", "title", "categories", "preview_text", "place_text", "preview_lat", "preview_lon",
+                "guest_long_description_released", "guest_details_released", "guest_contacts_released")
+
+# Einzeln fuer Besucher freigebbar (Schalter im freigegebenen Stand, Standard aus).
+GUEST_RELEASABLE = {
+    "long_description": "guest_long_description_released",
+    "details": "guest_details_released",
+    "contact": "guest_contacts_released",
+}
 
 # MITGLIED: Vorschau plus freigegebene Details/Kontakte/genaue Lage.
 MEMBER_EXTRA_FIELDS = (
@@ -21,7 +30,17 @@ MEMBER_EXTRA_FIELDS = (
     "contact_website", "disclosure_version",
 )
 
-_CATEGORY_LABELS = dict(Category.choices)
+def category_items(values, table=None) -> list[dict]:
+    """Aktive Kategorien als Wert, Bezeichnung und Symbol (gepflegte Reihenfolge)."""
+    return category_store.items(values, table)
+
+
+def category_filter(values) -> Q:
+    """Mindestens eine der gewaehlten Kategorien passt (ODER)."""
+    cond = Q()
+    for value in values:
+        cond |= Q(categories__contains=[value])
+    return cond
 
 
 def visible_published() -> QuerySet[PublishedLocation]:
@@ -56,9 +75,9 @@ def guest_search(qs: QuerySet, text: str) -> QuerySet:
     if not text:
         return qs
     cond = Q(title__icontains=text) | Q(preview_text__icontains=text) | Q(place_text__icontains=text)
-    matching_categories = [k for k, v in _CATEGORY_LABELS.items() if text.lower() in v.lower()]
-    if matching_categories:
-        cond |= Q(category__in=matching_categories)
+    for value, cat in category_store.lookup().items():
+        if text.lower() in cat.label.lower():
+            cond |= Q(categories__contains=[value])
     return qs.filter(cond)
 
 
@@ -72,12 +91,51 @@ def _guest_thumb(pub: PublishedLocation) -> dict | None:
     return {"url": photo_url(first.photo, "thumb"), "alt": first.alt_text}
 
 
-def guest_projection(pub: PublishedLocation, with_thumb: bool = False) -> dict:
+def _contact(pub: PublishedLocation) -> dict:
+    contact = {
+        "name": pub.contact_name,
+        "organisation": pub.contact_organisation,
+        "email": pub.contact_email,
+        "phone": pub.contact_phone,
+        "website": pub.contact_website,
+    }
+    return {k: v for k, v in contact.items() if v}
+
+
+def guest_released(pub: PublishedLocation) -> dict:
+    """Nur die einzeln fuer Besucher freigegebenen Mitgliedsfelder (leere werden weggelassen)."""
+    out = {}
+    if pub.guest_long_description_released and pub.long_description:
+        out["long_description"] = pub.long_description
+    if pub.guest_details_released and pub.details:
+        out["details"] = pub.details
+    if pub.guest_contacts_released:
+        contact = _contact(pub)
+        if contact:
+            out["contact"] = contact
+    return out
+
+
+def gallery_item(pp: PublishedPhoto) -> dict:
+    """Ein Galeriebild: Vorschau, Galeriegroesse und Bildbeschreibung (zugleich Alternativtext)."""
+    return {"thumb": photo_url(pp.photo, "thumb"), "full": photo_url(pp.photo, "detail"),
+            "description": pp.alt_text}
+
+
+def guest_gallery(pub: PublishedLocation) -> list[dict]:
+    """Nur fuer Gaeste freigegebene Bilder (Gastvorschau), nicht zurueckgezogen, in Reihenfolge."""
+    photos = getattr(pub, "guest_photos", None)
+    if photos is None:
+        photos = list(_guest_photo_prefetch().queryset.filter(published=pub))
+    return [gallery_item(pp) for pp in photos]
+
+
+def guest_projection(pub: PublishedLocation, with_thumb: bool = False, with_released: bool = False,
+                     category_table=None) -> dict:
     data = {
         "id": pub.public_id,
         "title": pub.title,
-        "category": pub.category,
-        "category_label": _CATEGORY_LABELS.get(pub.category, ""),
+        "categories": category_items(pub.categories, category_table),
         "preview_text": pub.preview_text,
         "place": pub.place_text,
         "lat": float(pub.preview_lat),
@@ -85,14 +143,18 @@ def guest_projection(pub: PublishedLocation, with_thumb: bool = False) -> dict:
     }
     if with_thumb:
         data["thumb"] = _guest_thumb(pub)
+        data["gallery"] = guest_gallery(pub)
+    if with_released:
+        data.update(guest_released(pub))
     return data
 
 
-def guest_point(pub: PublishedLocation) -> dict:
+def guest_point(pub: PublishedLocation, category_table=None) -> dict:
+    table = category_store.lookup() if category_table is None else category_table
     return {
         "id": pub.public_id,
         "title": pub.title,
-        "category": pub.category,
+        "categories": [c for c in pub.categories if c in table],
         "lat": float(pub.preview_lat),
         "lon": float(pub.preview_lon),
     }
@@ -101,13 +163,6 @@ def guest_point(pub: PublishedLocation) -> dict:
 def member_projection(pub: PublishedLocation) -> dict:
     """Nur nach Pruefung von Mitgliedschaft, MFA und Freigabebuchung aufrufen (Etappe 3)."""
     data = guest_projection(pub, with_thumb=True)
-    contact = {
-        "name": pub.contact_name,
-        "organisation": pub.contact_organisation,
-        "email": pub.contact_email,
-        "phone": pub.contact_phone,
-        "website": pub.contact_website,
-    }
     data.update({
         "long_description": pub.long_description,
         "details": pub.details,
@@ -115,9 +170,10 @@ def member_projection(pub: PublishedLocation) -> dict:
             {"lat": float(pub.member_lat), "lon": float(pub.member_lon), "address": pub.member_address}
             if pub.member_lat is not None else None
         ),
-        "contact": {k: v for k, v in contact.items() if v},
-        "photos": [
-            {"thumb": photo_url(pp.photo, "thumb"), "detail": photo_url(pp.photo, "detail"), "alt": pp.alt_text}
+        "contact": _contact(pub),
+        # Mitglied mit gueltiger Freigabebuchung: Gast- und Mitgliederbilder (nie interne).
+        "gallery": [
+            gallery_item(pp)
             for pp in PublishedPhoto.objects.filter(published=pub, photo__is_withdrawn=False)
             .exclude(visibility=Photo.Visibility.INTERNAL).select_related("photo").order_by("sort_order", "id")
         ],

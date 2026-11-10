@@ -2,10 +2,24 @@
 {% block title %}{{ obj.title }} · Adresskarte{% endblock %}
 {% block content %}
 <article class="preview">
-  <p class="muted">{{ obj.category_label }} · {{ obj.place }}</p>
   <h1>{{ obj.title }}</h1>
-  {% if obj.thumb %}<p><img class="thumb" src="{{ obj.thumb.url }}" alt="{{ obj.thumb.alt }}" width="400"></p>{% endif %}
+  <p class="muted place">{{ obj.place }}</p>
+  {% if obj.categories %}<ul class="tags" aria-label="Kategorien">{% for c in obj.categories %}<li class="tag">{{ c.label }}</li>{% endfor %}</ul>{% endif %}
+  {% include "locations/_gallery.html" with photos=obj.gallery %}
   <p>{{ obj.preview_text }}</p>
+  {% if obj.long_description or obj.details %}
+  <section>
+    <h2>Beschreibung</h2>
+    {% if obj.long_description %}<p class="prewrap">{{ obj.long_description }}</p>{% endif %}
+    {% if obj.details %}<p class="prewrap">{{ obj.details }}</p>{% endif %}
+  </section>
+  {% endif %}
+  {% if obj.contact %}
+  <section>
+    <h2>Kontakt</h2>
+    {% include "locations/_contact.html" %}
+  </section>
+  {% endif %}
   {% if member %}
     <aside class="notice">
       <p>Ausführliche Beschreibung, Fotos und Kontaktangaben dieses Objekts anzeigen.
@@ -17,7 +31,7 @@
     </aside>
   {% else %}
     <aside class="notice">
-      <p>Ausführliche Beschreibung, Fotos und Kontaktangaben sind nur für angemeldete Mitglieder
+      <p>Weitere Angaben und Bilder sind nur für angemeldete Mitglieder
          mit bestätigter E-Mail-Adresse und zweitem Anmeldeschritt sichtbar.</p>
       <p><a href="{% url 'two_factor:login' %}?next={{ request.path|urlencode }}">Anmelden</a>
          · <a href="{% url 'account:register' %}">Registrieren</a></p>
@@ -26,3 +40,4 @@
   <p><a href="{% url 'locations:home' %}">Zurück zur Übersicht</a></p>
 </article>
 {% endblock %}
+{% block scripts %}{% load static %}<script src="{% static 'js/gallery.js' %}"></script>{% endblock %}

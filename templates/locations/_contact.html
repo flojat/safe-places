@@ -1,0 +1,7 @@
+      <dl class="facts">
+        {% if obj.contact.name %}<dt>Name</dt><dd>{{ obj.contact.name }}</dd>{% endif %}
+        {% if obj.contact.organisation %}<dt>Organisation</dt><dd>{{ obj.contact.organisation }}</dd>{% endif %}
+        {% if obj.contact.email %}<dt>E-Mail</dt><dd><a href="mailto:{{ obj.contact.email }}">{{ obj.contact.email }}</a></dd>{% endif %}
+        {% if obj.contact.phone %}<dt>Telefon</dt><dd>{{ obj.contact.phone }}</dd>{% endif %}
+        {% if obj.contact.website %}<dt>Website</dt><dd><a href="{{ obj.contact.website }}" rel="noopener noreferrer nofollow">{{ obj.contact.website }}</a></dd>{% endif %}
+      </dl>

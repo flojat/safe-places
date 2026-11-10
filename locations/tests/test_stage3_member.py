@@ -27,8 +27,11 @@ def image_bytes(fmt="JPEG", size=(800, 600), color=(30, 120, 90), **save_kw) -> 
 
 
 def make_published(n: int, *, photos=True, **overrides):
+    from locations.categories import ensure_default_categories
+
+    ensure_default_categories()  # TransactionTestCases leeren die Tabelle
     data = dict(
-        title=f"Objekt {n}", category="beratung", preview_text=f"Vorschau {n}",
+        title=f"Objekt {n}", categories=["beratung"], preview_text=f"Vorschau {n}",
         long_description=f"{MEMBER_MARKER}{n} lang", place_text="Bern",
         exact_lat=Decimal("46.948000") + Decimal(n) / 1000, exact_lon=Decimal("7.447400"),
         exact_address=f"{MEMBER_MARKER}ADRESSE {n}", member_exact_location_released=True,
@@ -206,13 +209,15 @@ class PhotoAccessTests(TestCase):
         self.m = self.photos[Photo.Visibility.MEMBER_DETAIL]
         self.i = self.photos[Photo.Visibility.INTERNAL]
 
-    def test_guest_gets_only_guest_thumbnail(self):
+    def test_guest_gets_only_guest_photos_in_both_sizes(self):
         r = self.guest.get(photo_url(self.g))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r["Content-Type"], "image/jpeg")
         self.assertEqual(r["X-Content-Type-Options"], "nosniff")
         self.assertEqual(r["Cache-Control"], "private, no-store")
-        for url in (photo_url(self.g, "detail"), photo_url(self.m), photo_url(self.m, "detail"),
+        # Galeriegroesse fuer Gastbilder (Betreiberentscheid 2026-11-10); Mitglieder-/interne Bilder nie.
+        self.assertEqual(self.guest.get(photo_url(self.g, "detail")).status_code, 200)
+        for url in (photo_url(self.m), photo_url(self.m, "detail"),
                     photo_url(self.i), photo_url(self.g, "original"),
                     reverse("locations:photo", args=["unbekannt", "vorschau"])):
             with self.subTest(url=url):

@@ -21,7 +21,8 @@ from django.views.decorators.http import require_GET, require_POST, require_safe
 
 from . import member_access, projections, rate_limits, request_limits
 from .geo import CoordinateError, parse_bbox, tile_intersects_switzerland
-from .models import Category, Photo
+from . import categories as category_store
+from .models import Photo
 from .permissions import fully_verified_required, is_fully_verified
 from .services import images, swisstopo
 
@@ -62,11 +63,12 @@ def _filtered_queryset(request, with_photos: bool = False):
     if len(q) > MAX_QUERY_LENGTH:
         raise _FilterError("Suchtext zu lang")
     qs = projections.guest_search(qs, q)
-    category = request.GET.get("category", "")
-    if category:
-        if category not in Category.values:
+    categories = request.GET.getlist("category")
+    if categories:
+        known = category_store.lookup()
+        if len(categories) > len(known) or any(c not in known for c in categories):
             raise _FilterError("Unbekannte Kategorie")
-        qs = qs.filter(category=category)
+        qs = qs.filter(projections.category_filter(set(categories)))
     return qs
 
 
@@ -74,7 +76,7 @@ def _filtered_queryset(request, with_photos: bool = False):
 def home(request):
     request_limits.ensure_guest_session(request)
     response = render(request, "locations/home.html", {
-        "categories": Category.choices,
+        "categories": category_store.active(),
         "map_config": {
             "minZoom": settings.MAP_MIN_ZOOM,
             "maxZoom": settings.MAP_MAX_ZOOM,
@@ -93,7 +95,8 @@ def api_points(request):
         return _bad_request(str(exc))
     count = qs.count()
     too_many = count > MAX_POINTS
-    points = [] if too_many else [projections.guest_point(p) for p in qs.order_by("id")[:MAX_POINTS]]
+    table = category_store.lookup()
+    points = [] if too_many else [projections.guest_point(p, table) for p in qs.order_by("id")[:MAX_POINTS]]
     return _no_store(JsonResponse({
         "count": count,
         "too_many": too_many,
@@ -117,8 +120,9 @@ def api_list(request):
     page_size = MEMBER_PAGE_SIZE if is_fully_verified(request) else GUEST_PAGE_SIZE
     count = qs.count()
     start = (page - 1) * page_size
+    table = category_store.lookup()
     results = [
-        projections.guest_projection(p, with_thumb=True)
+        projections.guest_projection(p, with_thumb=True, category_table=table)
         for p in qs.order_by("title", "id")[start:start + page_size]
     ]
     return _no_store(JsonResponse({
@@ -158,7 +162,7 @@ def preview(request, public_id: str):
         context = {"obj": projections.member_projection(pub), "grant": grant}
         return _no_store(render(request, "locations/member_detail.html", context))
 
-    context = {"obj": projections.guest_projection(pub, with_thumb=True), "member": member}
+    context = {"obj": projections.guest_projection(pub, with_thumb=True, with_released=True), "member": member}
     if member:
         context["quota"] = member_access.quota_status(request.user)
     return _no_store(render(request, "locations/preview.html", context))
@@ -218,20 +222,21 @@ def photo(request, public_id: str, variant: str):
 
 @require_safe
 @request_limits.limited("tile")
-def tile(request, z: int, x: int, y: int):
-    """Gleichursprunglicher Kachelweg /map/tiles/{z}/{x}/{y}.jpeg.
+def tile(request, z: int, x: int, y: int, layer: str = "karte"):
+    """Gleichursprunglicher Kachelweg /map/tiles/{z}/{x}/{y}.jpeg (Karte) bzw.
+    /map/luftbild/{z}/{x}/{y}.jpeg (Orthofoto). Der Layer kommt nur aus der URL-Konfiguration.
 
     MAP_TILE_SOURCE=local_test: lokal erzeugte Testkacheln (Entwicklung/Tests).
     MAP_TILE_SOURCE=swisstopo: budgetiertes Gateway mit Cache (services/swisstopo.py).
     """
-    if not settings.MAP_MIN_ZOOM <= z <= settings.MAP_MAX_ZOOM:
+    if layer not in settings.SWISSTOPO_LAYERS or not settings.MAP_MIN_ZOOM <= z <= settings.MAP_MAX_ZOOM:
         raise Http404()
     n = 2 ** z
     if not (0 <= x < n and 0 <= y < n) or not tile_intersects_switzerland(z, x, y):
         raise Http404()
     if settings.MAP_TILE_SOURCE == "swisstopo":
         try:
-            data = swisstopo.get_tile(z, x, y)
+            data = swisstopo.get_tile(z, x, y, layer)
         except swisstopo.ProviderUnavailable as exc:
             # Kein Direkt-Fallback; Liste bleibt bedienbar.
             response = HttpResponse(status=503)
@@ -239,7 +244,7 @@ def tile(request, z: int, x: int, y: int):
             response["Cache-Control"] = "no-store"
             return response
     elif settings.MAP_TILE_SOURCE == "local_test":
-        data = _render_test_tile(z, x, y)
+        data = _render_test_tile(z, x, y, layer)
     else:
         raise Http404()
     response = HttpResponse(data, content_type="image/jpeg")
@@ -249,14 +254,16 @@ def tile(request, z: int, x: int, y: int):
 
 
 @lru_cache(maxsize=512)
-def _render_test_tile(z: int, x: int, y: int) -> bytes:
+def _render_test_tile(z: int, x: int, y: int, layer: str = "karte") -> bytes:
     from PIL import Image, ImageDraw
 
     shade = 236 if (x + y) % 2 == 0 else 228
-    img = Image.new("RGB", (256, 256), (shade, shade + 4, shade))
+    aerial = layer == "luftbild"
+    color = (shade - 120, shade - 100, shade - 130) if aerial else (shade, shade + 4, shade)
+    img = Image.new("RGB", (256, 256), color)
     draw = ImageDraw.Draw(img)
     draw.rectangle([0, 0, 255, 255], outline=(190, 196, 190))
-    draw.text((8, 8), f"Testkachel {z}/{x}/{y}", fill=(120, 126, 120))
+    draw.text((8, 8), f"{'Luftbild' if aerial else 'Testkachel'} {z}/{x}/{y}", fill=(220, 226, 220) if aerial else (120, 126, 120))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=70)
     return buf.getvalue()

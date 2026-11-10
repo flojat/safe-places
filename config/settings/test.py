@@ -69,3 +69,4 @@ _atexit.register(_shutil.rmtree, str(VAR_DIR), True)
 # Tests unabhaengig von der lokalen .env-Kartenquelle: lokale Testkacheln.
 MAP_TILE_SOURCE = "local_test"
 REGISTRATION_REQUIRES_ADMIN = False
+TEST_RUNNER = "locations.tests.runner.Runner"

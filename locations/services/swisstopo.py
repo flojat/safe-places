@@ -1,6 +1,6 @@
 """Kontrollierte swisstopo-Anbindung (Auftrag Abschnitt 5).
 
-- Feste Ziele: ein WMTS/XYZ-Layer und zwei REST-Endpunkte. Keine frei uebergebenen
+- Feste Ziele: die WMTS-Layer aus settings.SWISSTOPO_LAYERS (Karte, Luftbild) und zwei REST-Endpunkte. Keine frei uebergebenen
   Hosts, Layer, Pfade, Projektionen oder URLs (kein offener Proxy, keine SSRF).
 - TLS-Pruefung aktiv, keine Weiterleitungen, keine Umgebungs-Proxies, Timeouts,
   Groessen- und Content-Type-Pruefung. Keine Besucher-IP, Cookies oder Objektdaten
@@ -143,27 +143,43 @@ def _fetch(kind: str, url: str, *, accept: str, timeout: float, max_bytes: int) 
 
 # --- Kacheln -----------------------------------------------------------------------
 
-def tile_url(z: int, x: int, y: int) -> str:
+def _layer(layer: str | None) -> str:
+    """Nur Layer aus der festen Liste; Kurzname ('karte') oder Layername erlaubt."""
+    layers = settings.SWISSTOPO_LAYERS
+    if layer is None:
+        return settings.SWISSTOPO_LAYER
+    if layer in layers:
+        return layers[layer]
+    if layer in layers.values():
+        return layer
+    raise ValueError("Layer nicht erlaubt")
+
+
+def all_layers() -> list[str]:
+    return list(dict.fromkeys(settings.SWISSTOPO_LAYERS.values()))
+
+
+def tile_url(z: int, x: int, y: int, layer: str | None = None) -> str:
     for v in (z, x, y):
         if not isinstance(v, int) or isinstance(v, bool) or v < 0:
             raise ValueError("ungueltige Kachelkoordinate")
-    return f"{TILE_HOST}/1.0.0/{settings.SWISSTOPO_LAYER}/default/current/3857/{z}/{x}/{y}.jpeg"
+    return f"{TILE_HOST}/1.0.0/{_layer(layer)}/default/current/3857/{z}/{x}/{y}.jpeg"
 
 
-def _cache_root() -> Path:
-    return (Path(settings.VAR_DIR) / settings.TILE_CACHE_DIR_NAME / settings.SWISSTOPO_LAYER).resolve()
+def _cache_root(layer: str | None = None) -> Path:
+    return (Path(settings.VAR_DIR) / settings.TILE_CACHE_DIR_NAME / _layer(layer)).resolve()
 
 
-def current_generation() -> int:
-    state, _ = TileCacheState.objects.get_or_create(layer=settings.SWISSTOPO_LAYER)
+def current_generation(layer: str | None = None) -> int:
+    state, _ = TileCacheState.objects.get_or_create(layer=_layer(layer))
     return state.generation
 
 
-def tile_path(generation: int, z: int, x: int, y: int) -> Path:
+def tile_path(generation: int, z: int, x: int, y: int, layer: str | None = None) -> Path:
     for v in (generation, z, x, y):
         if not isinstance(v, int) or v < 0:
             raise ValueError("ungueltiger Cacheschluessel")
-    return _cache_root() / str(generation) / str(z) / str(x) / f"{y}.jpg"
+    return _cache_root(layer) / str(generation) / str(z) / str(x) / f"{y}.jpg"
 
 
 def _read_fresh(path: Path) -> bytes | None:
@@ -204,14 +220,15 @@ def _release_fetch_lock(key: str, token: str) -> None:
     TileFetchLock.objects.filter(key=key, holder=token).delete()
 
 
-def get_tile(z: int, x: int, y: int) -> bytes:
+def get_tile(z: int, x: int, y: int, layer: str | None = None) -> bytes:
     """Cachetreffer ohne Providerbudget; sonst genau ein Worker holt die Kachel."""
-    generation = current_generation()
-    path = tile_path(generation, z, x, y)
+    layer = _layer(layer)
+    generation = current_generation(layer)
+    path = tile_path(generation, z, x, y, layer)
     cached = _read_fresh(path)
     if cached is not None:
         return cached
-    key = f"{settings.SWISSTOPO_LAYER}:{generation}:{z}:{x}:{y}"
+    key = f"{layer}:{generation}:{z}:{x}:{y}"
     token = _acquire_fetch_lock(key, settings.SWISSTOPO_TILE_TIMEOUT + 5)
     if token is None:
         deadline = time.monotonic() + settings.TILE_MISS_WAIT_SECONDS
@@ -226,7 +243,7 @@ def get_tile(z: int, x: int, y: int) -> bytes:
         if cached is not None:
             return cached
         status, ctype, body = _fetch(
-            "tile", tile_url(z, x, y), accept="image/jpeg",
+            "tile", tile_url(z, x, y, layer), accept="image/jpeg",
             timeout=settings.SWISSTOPO_TILE_TIMEOUT, max_bytes=settings.SWISSTOPO_TILE_MAX_BYTES,
         )
         if (
@@ -242,9 +259,10 @@ def get_tile(z: int, x: int, y: int) -> bytes:
 
 # --- Cache-Aktualitaet (REST, budgetiert) ----------------------------------------
 
-def check_cache_update() -> bool:
+def check_cache_update(layer: str | None = None) -> bool:
     """Prueft den dokumentierten cacheUpdate-Endpunkt. Bei Aenderung neue Generation."""
-    url = f"{REST_HOST}/rest/services/ech/MapServer/{settings.SWISSTOPO_LAYER}/cacheUpdate"
+    layer = _layer(layer)
+    url = f"{REST_HOST}/rest/services/ech/MapServer/{layer}/cacheUpdate"
     status, ctype, body = _fetch("rest", url, accept=REST_ACCEPT,
                                  timeout=settings.SWISSTOPO_REST_TIMEOUT, max_bytes=4096)
     if status != 200 or "json" not in ctype.lower() or len(body) > 4096:
@@ -256,7 +274,7 @@ def check_cache_update() -> bool:
     if not _ISO_RE.match(value):
         raise ProviderUnavailable("invalid_response")
     with transaction.atomic():
-        state, _ = TileCacheState.objects.select_for_update().get_or_create(layer=settings.SWISSTOPO_LAYER)
+        state, _ = TileCacheState.objects.select_for_update().get_or_create(layer=layer)
         changed = state.provider_cache_update != value
         if changed:
             state.generation += 1  # alte Kacheln werden nicht mehr verwendet
@@ -266,12 +284,12 @@ def check_cache_update() -> bool:
     return changed
 
 
-def cleanup_cache() -> dict:
-    """Entfernt alte Generationen, abgelaufene Kacheln und begrenzt die Gesamtgroesse."""
+def cleanup_cache(layer: str | None = None) -> dict:
+    """Entfernt alte Generationen, abgelaufene Kacheln und begrenzt die Gesamtgroesse (je Layer)."""
     import shutil
 
-    root = _cache_root()
-    generation = current_generation()
+    root = _cache_root(layer)
+    generation = current_generation(layer)
     removed = {"generations": 0, "expired": 0, "evicted": 0}
     if not root.exists():
         return removed

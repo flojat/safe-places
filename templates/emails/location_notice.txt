@@ -1,0 +1,14 @@
+{% autoescape off %}Guten Tag
+
+Mitteilung der Redaktion zu Ihrem Objekt «{{ title }}» bei der Adresskarte:
+
+{{ kind_text }}.
+{% if sections %}
+Betroffene Bereiche: {{ sections }}
+{% endif %}{% if feedback %}
+Rückmeldung der Redaktion:
+{{ feedback }}
+{% endif %}
+Details sehen Sie nach der Anmeldung im Betreuerportal unter «Meine Objekte».
+Diese Nachricht enthält bewusst keine Links.
+{% endautoescape %}

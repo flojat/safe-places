@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
-{% block head %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'css/map_tools.css' %}">{% endblock %}
 {% block main_class %}explore{% endblock %}
 {% block content %}
 <div class="view-toggle" role="tablist" aria-label="Ansicht">
@@ -11,11 +12,10 @@
   <form class="filters" id="filters" role="search" autocomplete="off">
     <label for="q">Suche</label>
     <input type="search" id="q" name="q" maxlength="80" placeholder="Titel, Ort, Kategorie">
-    <label for="category">Kategorie</label>
-    <select id="category" name="category">
-      <option value="">Alle</option>
-      {% for value, label in categories %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-    </select>
+    <fieldset class="category-filter" id="category-filter">
+      <legend>Kategorien <span class="muted">(mindestens eine passt; keine Auswahl = alle)</span></legend>
+      {% for c in categories %}<label class="tag tag-toggle"><input type="checkbox" name="category" value="{{ c.slug }}"> {{ c.label }}</label>{% endfor %}
+    </fieldset>
   </form>
   <p class="status" id="status" aria-live="polite"></p>
   <ol class="results" id="results"></ol>
@@ -33,5 +33,7 @@
 {% endblock %}
 {% block scripts %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/basemaps.js' %}"></script>
+<script src="{% static 'js/gallery.js' %}"></script>
 <script src="{% static 'js/explore.js' %}"></script>
 {% endblock %}

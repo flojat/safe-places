@@ -159,13 +159,26 @@ class GatewayTests(CacheIsolationMixin, TestCase):
         files = [str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()]
         self.assertTrue(files)
         for f in files:
-            self.assertRegex(f, r"^ch\.swisstopo\.pixelkarte-farbe/\d+/\d+/\d+/\d+\.jpg$")
+            self.assertRegex(f, r"^ch\.swisstopo\.(pixelkarte-farbe|swissimage)/\d+/\d+/\d+/\d+\.jpg$")
 
     def test_browser_assets_never_reference_provider_directly(self):
-        for path in ("static/js/explore.js", "static/js/detail_map.js"):
+        for path in ("static/js/explore.js", "static/js/detail_map.js", "static/js/basemaps.js",
+                     "static/js/location_picker.js"):
             text = (Path(settings.BASE_DIR) / path).read_text()
             self.assertNotIn("geo.admin.ch", text)
-            self.assertIn("/map/tiles/{z}/{x}/{y}.jpeg", text)
+        basemaps = (Path(settings.BASE_DIR) / "static/js/basemaps.js").read_text()
+        self.assertIn("/map/tiles/{z}/{x}/{y}.jpeg", basemaps)
+        self.assertIn("/map/luftbild/{z}/{x}/{y}.jpeg", basemaps)
+
+    def test_aerial_route_fetches_fixed_swissimage_url(self):
+        with mock.patch(OPEN, side_effect=ok_tile) as upstream:
+            r = self.client.get(f"/map/luftbild/12/{self.x}/{self.y}.jpeg?layer=ch.swisstopo.geologie")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(upstream.call_args.args[0],
+                         f"https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/12/{self.x}/{self.y}.jpeg")
+        for url in ("/map/geologie/12/1/1.jpeg", f"/map/luftbild/12/{self.x}/{self.y}.png", "/map/luftbild/12/0/0.jpeg"):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 404)
 
 
 class GatewayUnitTests(CacheIsolationMixin, TestCase):
@@ -203,16 +216,45 @@ class GatewayUnitTests(CacheIsolationMixin, TestCase):
         payload = lambda value: (lambda *a, **k: (200, "application/geo+json", json.dumps({"cache_type": "wmts_native", "cache_update": value}).encode()))
         with mock.patch(OPEN, side_effect=payload("2026-11-01T08:00:00")) as upstream:
             call_command("check_tile_cache_update", stdout=io.StringIO())
-        self.assertIn("/rest/services/ech/MapServer/ch.swisstopo.pixelkarte-farbe/cacheUpdate", upstream.call_args.args[0])
+        called = [c.args[0] for c in upstream.call_args_list]
+        self.assertEqual(len(called), 2)  # Karte und Luftbild
+        self.assertTrue(any("/rest/services/ech/MapServer/ch.swisstopo.pixelkarte-farbe/cacheUpdate" in u for u in called))
+        self.assertTrue(any("/rest/services/ech/MapServer/ch.swisstopo.swissimage/cacheUpdate" in u for u in called))
         self.assertEqual(upstream.call_args.kwargs["accept"], "*/*")
-        gen = TileCacheState.objects.get().generation
+        gen = swisstopo.current_generation()
+        aerial_gen = swisstopo.current_generation("luftbild")
         with mock.patch(OPEN, side_effect=payload("2026-11-01T08:00:00")):
             call_command("check_tile_cache_update", stdout=io.StringIO())
-        self.assertEqual(TileCacheState.objects.get().generation, gen)
+        self.assertEqual(swisstopo.current_generation(), gen)
         with mock.patch(OPEN, side_effect=payload("2026-11-09T08:00:00")):
             call_command("check_tile_cache_update", stdout=io.StringIO())
-        self.assertEqual(TileCacheState.objects.get().generation, gen + 1)
-        self.assertEqual(rate_limits.RateEvent.objects.filter(bucket__scope="provider_rest_global").count(), 3)
+        self.assertEqual(swisstopo.current_generation(), gen + 1)
+        self.assertEqual(swisstopo.current_generation("luftbild"), aerial_gen + 1)
+        self.assertEqual(rate_limits.RateEvent.objects.filter(bucket__scope="provider_rest_global").count(), 6)
+
+    def test_one_failing_layer_does_not_block_the_other(self):
+        def answer(url, **kwargs):
+            if "swissimage" in url:
+                raise OSError("down")
+            return (200, "application/json", b'{"cache_update": "2026-11-09T08:00:00"}')
+        gen = swisstopo.current_generation()
+        with mock.patch(OPEN, side_effect=answer), self.assertRaises(CommandError):
+            call_command("check_tile_cache_update", stdout=io.StringIO())
+        self.assertEqual(swisstopo.current_generation(), gen + 1)
+
+    def test_aerial_tiles_use_own_layer_and_cache(self):
+        with mock.patch(OPEN, return_value=(200, "image/jpeg", JPEG)) as upstream:
+            self.assertEqual(swisstopo.get_tile(12, 2140, 1434, "luftbild"), JPEG)
+            self.assertEqual(swisstopo.get_tile(12, 2140, 1434, "luftbild"), JPEG)  # Cachetreffer
+        self.assertEqual(upstream.call_count, 1)
+        self.assertIn("/ch.swisstopo.swissimage/default/current/3857/12/2140/1434.jpeg", upstream.call_args.args[0])
+        self.assertTrue(swisstopo.tile_path(swisstopo.current_generation("luftbild"), 12, 2140, 1434, "luftbild").exists())
+        self.assertFalse(swisstopo.tile_path(swisstopo.current_generation(), 12, 2140, 1434).exists())
+
+    def test_unknown_layer_is_refused(self):
+        for bad in ("ch.swisstopo.geologie", "../karte", "https://evil.example/x"):
+            with self.subTest(layer=bad), self.assertRaises(ValueError):
+                swisstopo.tile_url(1, 1, 1, bad)
         with mock.patch(OPEN, side_effect=lambda *a, **k: (200, "application/json", b"{\"cache_update\": \"<script>\"}")):
             with self.assertRaises(CommandError):
                 call_command("check_tile_cache_update", stdout=io.StringIO())

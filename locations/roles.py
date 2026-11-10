@@ -14,7 +14,7 @@ EDITOR = "Redaktion"
 
 # Redaktion: fachliche Pruef-/Freigaberechte, keine Konten-/Gruppen-/OTP-Verwaltung.
 EDITOR_PERMISSIONS = [
-    ("locations", "view_location"), ("locations", "change_location"),
+    ("locations", "view_location"), ("locations", "add_location"), ("locations", "change_location"),
     ("locations", "view_publishedlocation"),
     ("locations", "view_provider"), ("locations", "add_provider"), ("locations", "change_provider"),
     ("locations", "view_photo"), ("locations", "change_photo"),
@@ -54,3 +54,23 @@ def is_editor(user) -> bool:
 
 def is_admin(user) -> bool:
     return user.is_authenticated and user.is_staff and user.is_superuser
+
+
+def default_object_manager():
+    """Interner Standard-Betreuer aus DEFAULT_OBJECT_MANAGER_EMAIL, nur wenn aktiv und berechtigt."""
+    from django.conf import settings
+    from django.contrib.auth import get_user_model
+
+    email = getattr(settings, "DEFAULT_OBJECT_MANAGER_EMAIL", "")
+    if not email:
+        return None
+    User = get_user_model()
+    return (
+        User.objects.filter(email=email, is_active=True, state=User.State.ACTIVE, groups__name=OBJECT_MANAGER)
+        .first()
+    )
+
+
+def is_default_object_manager(user) -> bool:
+    default = default_object_manager()
+    return default is not None and user is not None and user.pk == default.pk

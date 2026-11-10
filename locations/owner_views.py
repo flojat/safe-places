@@ -13,7 +13,6 @@ from functools import wraps
 
 from django.conf import settings
 from django.contrib import messages
-from django.db import transaction
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
@@ -23,7 +22,7 @@ from .forms import LocationWorkForm, NewLocationForm, PhotoEditForm, PhotoUpload
 from .geo import CoordinateError
 from .models import AuditEvent, Location, Photo
 from .permissions import can_manage_location, can_use_owner_portal, fully_verified_required
-from .services import images, publishing
+from .services import photos, publishing
 
 
 def _no_store(response):
@@ -111,6 +110,8 @@ def portal_edit(request, public_id: str):
         "photos": loc.photos.order_by("sort_order", "id"),
         "upload_form": PhotoUploadForm(),
         "published": getattr(loc, "published", None),
+        # Nur an diese Betreuung gerichtete Mitteilungen; ohne Namen der Redaktion.
+        "notices": list(loc.notices.filter(recipient=request.user)[:20]),
     })
 
 
@@ -173,7 +174,7 @@ def portal_photo_upload(request, public_id: str):
     loc = _own_location(request, public_id)
     form = PhotoUploadForm(request.POST, request.FILES)
     if not form.is_valid():
-        messages.error(request, "Bitte Bild und Sichtbarkeit angeben.")
+        messages.error(request, "Bitte Bild, Sichtbarkeit und Bestaetigung der Bildrechte angeben.")
         return redirect("portal:edit", public_id=public_id)
     if loc.photos.filter(is_withdrawn=False).count() >= settings.MAX_ACTIVE_PHOTOS_PER_LOCATION:
         messages.error(request, "Maximale Anzahl aktiver Bilder erreicht.")
@@ -189,25 +190,17 @@ def portal_photo_upload(request, public_id: str):
         ])
     except rate_limits.RateLimited as exc:
         return request_limits.too_many(request, exc.retry_after)
-    data = upload.read(settings.IMAGE_MAX_UPLOAD_BYTES + 1)
     try:
-        processed = images.process_upload(data)
-    except images.ImageRejected as exc:
-        messages.error(request, f"Bild abgelehnt: {exc}")
-        return redirect("portal:edit", public_id=public_id)
-    with transaction.atomic():
-        locked = Location.objects.select_for_update().get(pk=loc.pk)
-        if locked.managed_by_id != request.user.pk:  # Zuordnung waehrend Upload entzogen
-            images.delete_files(processed.storage_key)
-            raise Http404()
-        photo = Photo.objects.create(
-            location=locked, storage_key=processed.storage_key, alt_text=form.cleaned_data["alt_text"],
-            visibility=form.cleaned_data["visibility"], width=processed.width, height=processed.height,
-            uploaded_by=request.user, sort_order=locked.photos.count(),
+        photos.add_photo(
+            loc.pk, upload, alt_text=form.cleaned_data["alt_text"], visibility=form.cleaned_data["visibility"],
+            actor=request.user, rights_confirmed=form.cleaned_data["rights_confirmed"],
+            still_allowed=lambda locked: locked.managed_by_id == request.user.pk,  # Zuordnung entzogen?
         )
-        AuditEvent.objects.create(actor=request.user, action="photo_upload", target_type="photo",
-                                  target_id=photo.public_id)
-        publishing.mark_work_changed(locked.pk, request.user)
+    except photos.PhotoRejected as exc:
+        messages.error(request, str(exc))
+        return redirect("portal:edit", public_id=public_id)
+    except photos.AccessLost:
+        raise Http404()
     messages.success(request, "Bild hochgeladen. Sichtbar erst nach Einreichung und Freigabe.")
     return redirect("portal:edit", public_id=public_id)
 

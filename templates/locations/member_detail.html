@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}{{ obj.title }} · Adresskarte{% endblock %}
-{% block head %}{% if obj.exact_location %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">{% endif %}{% endblock %}
+{% block head %}{% if obj.exact_location %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'css/map_tools.css' %}">{% endif %}{% endblock %}
 {% block content %}
 <article class="preview member-detail">
-  <p class="muted">{{ obj.category_label }} · {{ obj.place }}</p>
   <h1>{{ obj.title }}</h1>
+  <p class="muted place">{{ obj.place }}</p>
+  {% if obj.categories %}<ul class="tags" aria-label="Kategorien">{% for c in obj.categories %}<li class="tag">{{ c.label }}</li>{% endfor %}</ul>{% endif %}
   <p>{{ obj.preview_text }}</p>
   <section>
     <h2>Beschreibung</h2>
@@ -15,13 +17,7 @@
   <section>
     <h2>Kontakt</h2>
     {% if obj.contact %}
-      <dl class="facts">
-        {% if obj.contact.name %}<dt>Name</dt><dd>{{ obj.contact.name }}</dd>{% endif %}
-        {% if obj.contact.organisation %}<dt>Organisation</dt><dd>{{ obj.contact.organisation }}</dd>{% endif %}
-        {% if obj.contact.email %}<dt>E-Mail</dt><dd><a href="mailto:{{ obj.contact.email }}">{{ obj.contact.email }}</a></dd>{% endif %}
-        {% if obj.contact.phone %}<dt>Telefon</dt><dd>{{ obj.contact.phone }}</dd>{% endif %}
-        {% if obj.contact.website %}<dt>Website</dt><dd><a href="{{ obj.contact.website }}" rel="noopener noreferrer nofollow">{{ obj.contact.website }}</a></dd>{% endif %}
-      </dl>
+      {% include "locations/_contact.html" %}
     {% else %}
       <p class="muted">Für dieses Objekt sind keine Kontaktangaben freigegeben.</p>
     {% endif %}
@@ -36,12 +32,10 @@
       <p>Ungefähre Lage: {{ obj.place }}. Eine genaue Adresse ist nicht freigegeben.</p>
     {% endif %}
   </section>
-  {% if obj.photos %}
+  {% if obj.gallery %}
   <section>
     <h2>Fotos</h2>
-    <div class="gallery">
-      {% for p in obj.photos %}<a href="{{ p.detail }}"><img src="{{ p.thumb }}" alt="{{ p.alt }}" loading="lazy" width="200"></a>{% endfor %}
-    </div>
+    {% include "locations/_gallery.html" with photos=obj.gallery %}
   </section>
   {% endif %}
   <p class="muted">Freigegeben bis {{ grant.expires_at|date:"d.m.Y H:i" }}. Inhalte dienen nur der persönlichen Kontaktaufnahme.</p>
@@ -49,8 +43,10 @@
 </article>
 {% endblock %}
 {% block scripts %}
+<script src="{% static 'js/gallery.js' %}"></script>
 {% if obj.exact_location %}
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/basemaps.js' %}"></script>
 <script src="{% static 'js/detail_map.js' %}"></script>
 {% endif %}
 {% endblock %}

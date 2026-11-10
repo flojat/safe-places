@@ -32,8 +32,15 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 ## Modulueberblick
 
 - `locations/geo.py`: Koordinatenpruefung (NaN/Inf, CH-Rechteck), grobe Vorschaulage, bbox, Kachelgrenzen.
-- `locations/projections.py`: GAST-/MITGLIED-Feldlisten; Besucherausgaben nur hierueber.
-- `locations/services/publishing.py`: submit/publish/withdraw atomar mit Versionsvergleich.
+- `locations/projections.py`: GAST-/MITGLIED-Feldlisten; Besucherausgaben nur hierueber. Langbeschreibung,
+  Details, Kontakte gehen an Gaeste nur per Einzelfreigabe (`guest_*_released` im Snapshot, Standard aus).
+- `locations/categories.py`: Kategorien aus Model `Category` (Pflege nur Administration, deaktivieren statt
+  loeschen); Objekte speichern Kennungen in `categories` (JSON). Tests: Runner `locations/tests/runner.py`.
+- `locations/services/publishing.py`: submit/publish/withdraw atomar mit Versionsvergleich;
+  `editorial_publish`/`editorial_publish_blocker` (Direktfreigabe: nur bereits aktiv veroeffentlicht oder
+  Standard-Betreuer `DEFAULT_OBJECT_MANAGER_EMAIL`, nie bei `owner_changes_pending`, immer mit Betreuung).
+- `locations/services/owner_notices.py`: Mitteilungen an Betreuung (`LocationNotice`, Portal + Verwaltung;
+  Entscheide per Mail mit eigenem Budget `notice_*`). `services/photos.py`: Foto-Upload/-Entfernen (Portal + Admin).
 - `locations/views.py`: Gastseite, `/api/punkte`, `/api/liste`, `/objekt/<id>/`, `/map/tiles/...`.
 - `locations/auth_flows.py`: Registrierung, E-Mail-Verifikationstoken, E-Mail-Challenges, Generationswechsel.
 - `locations/account_views.py`: abgeleitete two_factor-Login/Setup-Views mit Schutzmixin, Konto, Reset.
@@ -48,7 +55,9 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 - `locations/reauth.py`: frische Bestaetigung (`recent_reauth_required`, 5 min).
 - `locations/services/swisstopo.py`: Gateway/Cache/Budgets/Adresssuche; einzige Netzwerkfunktion `_open`
   (in Tests immer mocken; `SWISSTOPO_NETWORK_ENABLED=False` in Testsettings sperrt echte Abrufe).
-- Kartenquelle: `MAP_TILE_SOURCE=local_test|swisstopo` in `.env`.
+- Kartenquelle: `MAP_TILE_SOURCE=local_test|swisstopo` in `.env`. Grundkarten fest in `SWISSTOPO_LAYERS`
+  (karte = pixelkarte-farbe unter `/map/tiles/`, luftbild = swissimage unter `/map/luftbild/`), Cache je Layer.
+  Frontend: `static/js/basemaps.js` (Umschalter), `location_picker.js` (Punktwahl Portal/Admin).
 - `locations/bootstrap.py`: Initialkonten (`provision_initial_accounts`, `send_initial_invitations`); privates
   Manifest `initial_accounts.local.json` nie lesen/ausgeben/committen.
 - `scripts/manage_installation.py`: preflight/install/doctor/deploy/rollback (nur stdlib); Tests in

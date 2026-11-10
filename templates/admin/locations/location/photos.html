@@ -1,0 +1,27 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Arbeitsfassung v{{ loc.work_version }} · Status: {{ loc.get_review_state_display }} · max. {{ max_photos }} aktive Bilder</p>
+<p class="errornote"><strong>Bildrechte (Copyright):</strong> Nur eigene Bilder oder Bilder mit nachweislich geklärten
+  Nutzungsrechten hochladen. Bilder aus dem Internet oder sozialen Medien ohne Erlaubnis sind nicht zulässig.</p>
+<p class="help">Neue Bilder und Änderungen werden erst mit der nächsten Freigabe sichtbar. Bildbeschreibung, Sichtbarkeit
+  und Reihenfolge bearbeiten Sie im Objektformular. Ein bereits veröffentlichtes Bild wird beim Entfernen sofort
+  ausgeblendet; die Betreuung wird informiert. Ersetzen = neues Bild hochladen und altes entfernen.</p>
+<table>
+  <thead><tr><th>Bild</th><th>Sichtbarkeit</th><th>Bildbeschreibung</th><th>Rechte bestätigt</th><th>Status</th><th></th></tr></thead>
+  <tbody>{% for p, is_public in photos %}
+    <tr><td><img src="{% url 'locations:photo' p.public_id 'vorschau' %}" width="120" alt=""></td>
+      <td>{{ p.get_visibility_display }}</td><td>{{ p.alt_text|default:"–" }}</td><td>{{ p.rights_confirmed_at|date:"d.m.Y"|default:"–" }}</td>
+      <td>{% if p.is_withdrawn %}zurückgezogen{% elif is_public %}veröffentlicht{% else %}nur Arbeitsfassung{% endif %}</td>
+      <td><form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove"><input type="hidden" name="photo" value="{{ p.public_id }}">
+        <button type="submit">Entfernen</button></form></td></tr>
+  {% empty %}<tr><td colspan="6">Keine Bilder.</td></tr>{% endfor %}</tbody>
+</table>
+<h2>Bild hochladen</h2>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+  <input type="hidden" name="action" value="upload">
+  {{ form.as_p }}
+  <p><button type="submit" class="default">Hochladen</button></p>
+</form>
+<p><a href="{% url 'admin:locations_location_compare' loc.pk %}">Fassungsvergleich und Freigabe</a> ·
+   <a href="{% url 'admin:locations_location_change' loc.pk %}">Zur Arbeitsfassung</a></p>
+{% endblock %}

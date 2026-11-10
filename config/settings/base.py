@@ -261,7 +261,12 @@ RATE_LIMITS.update({
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 
 # Etappe 5: swisstopo (Abschnitt 5). Eigene Startwerte, keine Aussage ueber zulaessige Last.
-SWISSTOPO_LAYER = "ch.swisstopo.pixelkarte-farbe"   # einziger erlaubter Layer, 3857_19 (Zoom 0-19)
+SWISSTOPO_LAYER = "ch.swisstopo.pixelkarte-farbe"   # Standard-Grundkarte, 3857 (Zoom 0-19)
+# Abschliessende Liste der erlaubten Grundkarten (Kurzname im Kachelweg -> swisstopo-Layer).
+SWISSTOPO_LAYERS = {
+    "karte": SWISSTOPO_LAYER,
+    "luftbild": "ch.swisstopo.swissimage",  # SWISSIMAGE Orthofoto, 3857 (Zoom 0-20)
+}
 SWISSTOPO_TILE_TIMEOUT = 5
 SWISSTOPO_TILE_MAX_BYTES = 512 * 1024
 SWISSTOPO_REST_TIMEOUT = 5
@@ -284,3 +289,12 @@ RATE_LIMITS.update({
 INVITATION_MAX_AGE = ENV.get_int("INVITATION_MAX_AGE_HOURS", 24) * 3600
 # Registrierung erst nach aktivem Administrator (Bootstrap abgeschlossen); lokal abschaltbar.
 REGISTRATION_REQUIRES_ADMIN = ENV.get_bool("REGISTRATION_REQUIRES_ADMIN", ENVIRONMENT == "production")
+
+# Redaktionelle Direktfreigabe: interner Standard-Betreuer (Adresse nur in .env, optional).
+# Ist er einem nie freigegebenen Objekt zugeordnet, darf die Redaktion es direkt freigeben.
+DEFAULT_OBJECT_MANAGER_EMAIL = (ENV.get("DEFAULT_OBJECT_MANAGER_EMAIL", "") or "").strip().lower()
+# Mitteilungen an Betreuung: eigenes Budget, damit Sicherheitsmails (Login-Codes) nie verdraengt werden.
+RATE_LIMITS.update({
+    "notice_recipient": [(30, _H), (200, _D)],
+    "notice_global": [(200, _H), (1000, _D)],
+})

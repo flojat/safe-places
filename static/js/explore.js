@@ -14,7 +14,7 @@
   var root = document.querySelector("main.explore");
   var els = {
     q: document.getElementById("q"),
-    category: document.getElementById("category"),
+    categoryBoxes: Array.prototype.slice.call(document.querySelectorAll('#category-filter input[name="category"]')),
     status: document.getElementById("status"),
     results: document.getElementById("results"),
     prev: document.getElementById("prev"),
@@ -26,7 +26,7 @@
     mapPanel: document.getElementById("map-panel"),
   };
 
-  var state = { q: "", category: "", page: 1, pages: 1, bbox: null, view: { lat: CH_CENTER[0], lon: CH_CENTER[1], z: 8 } };
+  var state = { q: "", categories: [], basemap: null, page: 1, pages: 1, bbox: null, view: { lat: CH_CENTER[0], lon: CH_CENTER[1], z: 8 } };
   var map = null;
   var markerLayer = null;
   var markers = {};
@@ -38,22 +38,27 @@
   (function readUrl() {
     var p = new URLSearchParams(window.location.search);
     var q = p.get("q"); if (q) state.q = q.slice(0, 80);
-    var c = p.get("category"); if (c) state.category = c;
+    var basis = p.get("basis"); if (basis === "luftbild" || basis === "karte") state.basemap = basis;
+    var known = els.categoryBoxes.map(function (b) { return b.value; });
+    state.categories = p.getAll("category").filter(function (c, i, all) {
+      return known.indexOf(c) >= 0 && all.indexOf(c) === i;
+    });
     var lat = parseFloat(p.get("lat")), lon = parseFloat(p.get("lon")), z = parseInt(p.get("z"), 10);
     if (isFinite(lat) && isFinite(lon) && isFinite(z)) {
       state.view = { lat: lat, lon: lon, z: Math.min(config.maxZoom, Math.max(config.minZoom, z)) };
     }
     els.q.value = state.q;
-    els.category.value = state.category;
+    els.categoryBoxes.forEach(function (b) { b.checked = state.categories.indexOf(b.value) >= 0; });
   })();
 
   function writeUrl() {
     var p = new URLSearchParams();
     if (state.q) p.set("q", state.q);
-    if (state.category) p.set("category", state.category);
+    state.categories.forEach(function (c) { p.append("category", c); });
     if (map) {
       var c = map.getCenter();
       p.set("lat", c.lat.toFixed(5)); p.set("lon", c.lng.toFixed(5)); p.set("z", String(map.getZoom()));
+      if (state.basemap === "luftbild") p.set("basis", "luftbild");
     }
     var qs = p.toString();
     var path = window.location.pathname + (qs ? "?" + qs : "");
@@ -75,7 +80,7 @@
     var p = new URLSearchParams();
     if (state.bbox) p.set("bbox", state.bbox);
     if (state.q) p.set("q", state.q);
-    if (state.category) p.set("category", state.category);
+    state.categories.forEach(function (c) { p.append("category", c); });
     Object.keys(extra || {}).forEach(function (k) { p.set(k, extra[k]); });
     return p.toString();
   }
@@ -103,6 +108,37 @@
 
   function setStatus(text) { els.status.textContent = text; }
 
+  // ---- Symbole (einfarbig, Strichgrafik; Pfade statisch, keine Serverdaten) ----
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var ICONS = {
+    pin: "M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10z M12 9a2 2 0 1 0 0 4a2 2 0 1 0 0-4z",
+    chevron: "M9 6l6 6-6 6",
+    // Kategoriesymbole: Namen wie CATEGORY_ICONS in locations/models.py
+    etikett: "M3 12V4h8l9 9-8 8z M7.5 7.5h.01",
+    sprechblase: "M4 5h16v11H9l-5 4z",
+    personen: "M9 11a3 3 0 1 0 0-6a3 3 0 1 0 0 6z M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6 M16 11a2.5 2.5 0 1 0 0-5 M17.5 14.2c2 .6 3.5 2.9 3.5 5.8",
+    haus: "M3 11l9-7 9 7 M5 10v10h14V10 M10 20v-5h4v5",
+    herz: "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z",
+    buch: "M4 5h6a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z M20 5h-6a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h6z",
+    sonne: "M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4",
+    blatt: "M5 19c0-8 5-13 15-14-1 10-6 15-14 15 M5 19l8-8",
+    mond: "M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z",
+    wlan_aus: "M2 8.5a15 15 0 0 1 6-3 M22 8.5a15 15 0 0 0-9.5-3.4 M5 12a10 10 0 0 1 4-2 M19 12a10 10 0 0 0-2.5-1.6 M8.5 15.5a5 5 0 0 1 7 0 M12 19h.01 M3 3l18 18",
+    berg: "M3 20l6-11 4 6 2-3 6 8z M9 9l2 3",
+    wasser: "M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z",
+  };
+
+  function icon(name) {
+    var svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", "icon");
+    svg.setAttribute("aria-hidden", "true");
+    var path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", ICONS[name] || ICONS.etikett);
+    svg.appendChild(path);
+    return svg;
+  }
+
   // ---- Liste ----
   function loadList() {
     var url = "/api/liste?" + buildQuery({ page: state.page });
@@ -116,29 +152,87 @@
   function renderList(data) {
     els.results.replaceChildren();
     data.results.forEach(function (item) {
+      var href = "/objekt/" + encodeURIComponent(item.id) + "/";
       var li = document.createElement("li");
+      li.className = "card";
       li.dataset.id = item.id;
-      var h = document.createElement("h2");
-      var a = document.createElement("a");
-      a.href = "/objekt/" + encodeURIComponent(item.id) + "/";
-      a.textContent = item.title;
-      h.appendChild(a);
-      var meta = document.createElement("p");
-      meta.className = "muted";
-      meta.textContent = item.category_label + " · " + item.place;
-      var text = document.createElement("p");
-      text.textContent = item.preview_text;
+
+      var media = document.createElement("div");
+      media.className = "card-media";
       if (item.thumb) {
         var img = document.createElement("img");
-        img.className = "list-thumb";
         img.src = item.thumb.url;
         img.alt = item.thumb.alt || "";
         img.loading = "lazy";
-        li.appendChild(img);
+        if (item.gallery && item.gallery.length && window.Gallery) {
+          // Klick aufs Bild: Galerie der fuer Gaeste freigegebenen Bilder dieses Objekts.
+          var open = document.createElement("button");
+          open.type = "button";
+          open.className = "card-media-open";
+          open.setAttribute("aria-label", "Bilder ansehen: " + item.title +
+            (item.gallery.length > 1 ? " (" + item.gallery.length + " Bilder)" : ""));
+          open.appendChild(img);
+          open.addEventListener("click", function () { window.Gallery.open(item.gallery, 0, open); });
+          media.appendChild(open);
+          if (item.gallery.length > 1) {
+            var badge = document.createElement("span");
+            badge.className = "card-media-count";
+            badge.setAttribute("aria-hidden", "true");
+            badge.textContent = String(item.gallery.length);
+            media.appendChild(badge);
+          }
+        } else {
+          media.appendChild(img);
+        }
       }
-      li.append(h, meta, text);
+
+      var body = document.createElement("div");
+      body.className = "card-body";
+      var head = document.createElement("div");
+      head.className = "card-head";
+      var h = document.createElement("h2");
+      var a = document.createElement("a");
+      a.href = href;
+      a.textContent = item.title;
+      h.appendChild(a);
+      head.appendChild(h);
+      if (item.place) {
+        var place = document.createElement("span");
+        place.className = "place";
+        var placeText = document.createElement("span");
+        placeText.textContent = item.place;
+        place.append(icon("pin"), placeText);
+        head.appendChild(place);
+      }
+      body.appendChild(head);
+      if (item.categories && item.categories.length) {
+        var tags = document.createElement("ul");
+        tags.className = "tags";
+        tags.setAttribute("aria-label", "Kategorien");
+        item.categories.forEach(function (c) {
+          var tag = document.createElement("li");
+          tag.className = "tag";
+          var label = document.createElement("span");
+          label.textContent = c.label;
+          tag.append(icon(c.icon), label);
+          tags.appendChild(tag);
+        });
+        body.appendChild(tags);
+      }
+      var text = document.createElement("p");
+      text.className = "card-text";
+      text.textContent = item.preview_text;
+      body.appendChild(text);
+
+      var go = document.createElement("a");
+      go.className = "card-go";
+      go.href = href;
+      go.setAttribute("aria-label", "Details: " + item.title);
+      go.appendChild(icon("chevron"));
+
+      li.append(media, body, go);
       li.addEventListener("click", function (ev) {
-        if (ev.target.tagName === "A") return;
+        if (ev.target.closest("a, button")) return;
         highlight(item.id, true);
       });
       els.results.appendChild(li);
@@ -235,21 +329,11 @@
       maxBoundsViscosity: 1.0,
       worldCopyJump: false,
     }).setView([state.view.lat, state.view.lon], state.view.z);
-    var attribution = config.tileSource === "local_test"
-      ? "Lokale Testkacheln (keine Kartendaten)"
-      : '&copy; Data: <a href="https://www.swisstopo.admin.ch/" rel="noopener noreferrer">swisstopo</a>';
-    L.tileLayer("/map/tiles/{z}/{x}/{y}.jpeg", {
-      minZoom: config.minZoom,
-      maxZoom: config.maxZoom,
-      bounds: CH_BOUNDS,
-      noWrap: true,
-      updateWhenIdle: true,
-      updateWhenZooming: false,
-      keepBuffer: 1,
-      detectRetina: false,
-      crossOrigin: false,
-      attribution: attribution,
-    }).addTo(map);
+    var basemaps = window.Basemaps.add(map, {
+      minZoom: config.minZoom, maxZoom: config.maxZoom, bounds: CH_BOUNDS, initial: state.basemap,
+      onChange: function (name) { state.basemap = name; writeUrl(); },
+    });
+    state.basemap = basemaps.current();
     markerLayer = L.layerGroup().addTo(map);
     map.on("moveend", onMapMove);
     updateBboxFromMap();
@@ -275,8 +359,11 @@
     if (v === state.q) return;
     state.q = v; state.page = 1; writeUrl(); loadPoints(); loadList();
   }, 350));
-  els.category.addEventListener("change", function () {
-    state.category = els.category.value; state.page = 1; writeUrl(); loadPoints(); loadList();
+  els.categoryBoxes.forEach(function (box) {
+    box.addEventListener("change", function () {
+      state.categories = els.categoryBoxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+      state.page = 1; writeUrl(); loadPoints(); loadList();
+    });
   });
   document.getElementById("filters").addEventListener("submit", function (ev) { ev.preventDefault(); });
   els.prev.addEventListener("click", function () { if (state.page > 1) { state.page -= 1; loadList(); } });

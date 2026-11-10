@@ -28,8 +28,11 @@ FORBIDDEN_IN_GUEST = ("CANARY-", "MITGLIEDERDETAIL-", "@example.org", "+41 00 00
 
 
 def make_location(**overrides) -> Location:
+    from locations.categories import ensure_default_categories
+
+    ensure_default_categories()  # TransactionTestCases leeren die Tabelle
     data = dict(
-        title="Testobjekt", category="beratung", preview_text="Kurzvorschau",
+        title="Testobjekt", categories=["beratung"], preview_text="Kurzvorschau",
         long_description="MITGLIEDERDETAIL-T lang", place_text="Bern",
         exact_lat=Decimal("46.948000"), exact_lon=Decimal("7.447400"),
         exact_address="CANARY-ADRESSE", internal_notes="CANARY-INTERN",
@@ -162,9 +165,9 @@ class ProjectionTests(TestCase):
         pub = publish_now(make_location())
         self.assertEqual(
             set(projections.guest_projection(pub)),
-            {"id", "title", "category", "category_label", "preview_text", "place", "lat", "lon"},
+            {"id", "title", "categories", "preview_text", "place", "lat", "lon"},
         )
-        self.assertEqual(set(projections.guest_point(pub)), {"id", "title", "category", "lat", "lon"})
+        self.assertEqual(set(projections.guest_point(pub)), {"id", "title", "categories", "lat", "lon"})
 
     def test_member_projection_contains_released_details(self):
         pub = publish_now(make_location(member_exact_location_released=True, exact_address="Demoweg 1"))

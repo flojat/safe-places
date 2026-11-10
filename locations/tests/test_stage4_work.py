@@ -66,7 +66,7 @@ def reauth(client, user):
 
 
 def owner_location(owner, **kw):
-    data = dict(title="Eigenes Objekt", category="beratung", preview_text="Vorschau", long_description="Lang",
+    data = dict(title="Eigenes Objekt", categories=["beratung"], preview_text="Vorschau", long_description="Lang",
                 place_text="Bern", exact_lat=Decimal("46.95"), exact_lon=Decimal("7.44"),
                 editorial_notes="CANARY-REDAKTION", managed_by=owner)
     data.update(kw)
@@ -75,7 +75,7 @@ def owner_location(owner, **kw):
 
 def edit_post(loc, **overrides):
     data = {
-        "expected_version": loc.work_version, "title": loc.title, "category": loc.category,
+        "expected_version": loc.work_version, "title": loc.title, "categories": loc.categories,
         "preview_text": loc.preview_text, "long_description": loc.long_description, "details": "",
         "place_text": loc.place_text, "exact_address": "", "exact_lat": "46.95", "exact_lon": "7.44",
         "preview_lat": "", "preview_lon": "", "contact_name": "", "contact_organisation": "",
@@ -97,7 +97,7 @@ class PortalAccessTests(TestCase):
         self.assertEqual(visitor.get(reverse("portal:list")).status_code, 404)
 
     def test_create_assigns_current_user_ignoring_post_fields(self):
-        r = self.a.post(reverse("portal:create"), {"title": "Neu", "category": "bildung",
+        r = self.a.post(reverse("portal:create"), {"title": "Neu", "categories": ["bildung"],
                                                     "managed_by": self.user_b.pk, "review_state": "approved"})
         loc = Location.objects.get(title="Neu")
         self.assertEqual(r.status_code, 302)
@@ -121,7 +121,7 @@ class PortalAccessTests(TestCase):
         self.assertEqual(self.a.post(reverse("portal:edit", args=[pid]), edit_post(self.loc_b, title="Gekapert")).status_code, 404)
         upload = SimpleUploadedFile("x.jpg", image_bytes(), content_type="image/jpeg")
         self.assertEqual(self.a.post(reverse("portal:photo_upload", args=[pid]),
-                                     {"image": upload, "visibility": "internal"}).status_code, 404)
+                                     {"image": upload, "visibility": "internal", "rights_confirmed": "on"}).status_code, 404)
         # Fremdes Foto unter eigenem Objekt referenzieren
         r = self.a.post(reverse("portal:photo_update", args=[self.loc_a.public_id, processed_photo.public_id]),
                         {"action": "withdraw"})
@@ -179,16 +179,16 @@ class PortalAccessTests(TestCase):
     def test_photo_upload_rules(self):
         url = reverse("portal:photo_upload", args=[self.loc_a.public_id])
         bad = SimpleUploadedFile("x.jpg", b"<svg></svg>", content_type="image/jpeg")
-        r = self.a.post(url, {"image": bad, "visibility": "guest_preview"}, follow=True)
+        r = self.a.post(url, {"image": bad, "visibility": "guest_preview", "rights_confirmed": "on"}, follow=True)
         self.assertContains(r, "Bild abgelehnt")
         good = SimpleUploadedFile("x.jpg", image_bytes(), content_type="image/jpeg")
-        self.a.post(url, {"image": good, "visibility": "member_detail", "alt_text": "Eingang"})
+        self.a.post(url, {"image": good, "visibility": "member_detail", "rights_confirmed": "on", "alt_text": "Eingang"})
         photo = Photo.objects.get(location=self.loc_a)
         self.assertEqual(photo.uploaded_by, self.user_a)
         self.assertEqual(self.a.get(reverse("locations:photo", args=[photo.public_id, "vorschau"])).status_code, 200)
         self.assertEqual(self.b.get(reverse("locations:photo", args=[photo.public_id, "vorschau"])).status_code, 404)
         third = SimpleUploadedFile("y.jpg", image_bytes(), content_type="image/jpeg")
-        r = self.a.post(url, {"image": third, "visibility": "internal"}, follow=True)
+        r = self.a.post(url, {"image": third, "visibility": "internal", "rights_confirmed": "on"}, follow=True)
         self.assertContains(r, "Maximale Anzahl")
         self.assertEqual(Photo.objects.filter(location=self.loc_a).count(), 1)
 
@@ -456,7 +456,7 @@ class AdminFormVersionTests(TestCase):
         loc = owner_location(None)
         stale_form_version = loc.work_version
         publishing.save_work_version(loc.pk, None, loc.work_version, {"title": "Vom Betreuer geaendert"})
-        form = LocationAdminForm(data={"title": "Redaktion", "category": "beratung",
+        form = LocationAdminForm(data={"title": "Redaktion", "categories": ["beratung"],
                                        "expected_version": stale_form_version}, instance=Location.objects.get(pk=loc.pk))
         self.assertFalse(form.is_valid())
         self.assertIn("inzwischen geaendert", str(form.non_field_errors()))

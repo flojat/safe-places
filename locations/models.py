@@ -122,13 +122,44 @@ def _coord_field(label: str):
     return models.DecimalField(label, max_digits=9, decimal_places=6, null=True, blank=True)
 
 
-class Category(models.TextChoices):
-    BERATUNG = "beratung", "Beratung"
-    TREFFPUNKT = "treffpunkt", "Treffpunkt"
-    UNTERKUNFT = "unterkunft", "Unterkunft"
-    GESUNDHEIT = "gesundheit", "Gesundheit"
-    BILDUNG = "bildung", "Bildung"
-    FREIZEIT = "freizeit", "Freizeit"
+# Symbole fuer Kategorien (einfarbige Strichgrafiken; Pfade in static/js/explore.js).
+CATEGORY_ICONS = [
+    ("etikett", "Etikett (Standard)"), ("sprechblase", "Sprechblase"), ("personen", "Personen"),
+    ("haus", "Haus"), ("herz", "Herz"), ("buch", "Buch"), ("sonne", "Sonne"), ("blatt", "Blatt"),
+    ("mond", "Mond"), ("wlan_aus", "WLAN aus"), ("berg", "Berg"), ("wasser", "Wasser"),
+]
+
+
+class Category(models.Model):
+    """Kategorie, durch die Administration pflegbar.
+
+    Objekte speichern nur die Kennung (slug). Die Kennung bleibt nach dem Anlegen fest;
+    Bezeichnung, Symbol und Reihenfolge sind aenderbar. Statt Loeschen: deaktivieren
+    (inaktive Kategorien sind weder waehlbar noch fuer Besucher sichtbar).
+    """
+
+    slug = models.SlugField("Kennung", max_length=32, unique=True,
+                            help_text="Kleinbuchstaben, Ziffern, Bindestrich. Nach dem Anlegen nicht mehr aenderbar.")
+    label = models.CharField("Bezeichnung", max_length=60)
+    icon = models.CharField("Symbol", max_length=24, choices=CATEGORY_ICONS, default="etikett")
+    sort_order = models.PositiveSmallIntegerField("Reihenfolge", default=100)
+    is_active = models.BooleanField("Aktiv", default=True)
+
+    class Meta:
+        verbose_name = "Kategorie"
+        verbose_name_plural = "Kategorien"
+        ordering = ["sort_order", "label", "id"]
+
+    def __str__(self) -> str:
+        return self.label
+
+
+def normalize_categories(values) -> list[str]:
+    """Nur aktive Kategorien, ohne Duplikate, in der gepflegten Reihenfolge."""
+    chosen = {v for v in (values or []) if isinstance(v, str)}
+    if not chosen:
+        return []
+    return list(Category.objects.filter(is_active=True, slug__in=chosen).values_list("slug", flat=True))
 
 
 class Provider(models.Model):
@@ -180,7 +211,7 @@ class Location(models.Model):
     )
 
     title = models.CharField("Titel", max_length=160, blank=True)
-    category = models.CharField("Kategorie", max_length=32, choices=Category.choices, blank=True)
+    categories = models.JSONField("Kategorien", default=list, blank=True)
     preview_text = models.CharField("Vorschautext", max_length=400, blank=True)
     long_description = models.TextField("Langbeschreibung (Mitglieder)", blank=True)
     details = models.TextField("Detailangaben (Mitglieder)", blank=True)
@@ -204,6 +235,11 @@ class Location(models.Model):
     contact_phone = models.CharField("Kontakttelefon", max_length=40, blank=True)
     contact_website = models.URLField("Website", blank=True)
     contacts_released = models.BooleanField("Kontakte fuer Mitglieder freigegeben", default=False)
+    # Einzelfreigaben fuer nicht angemeldete Besucher (Standard: aus; wirksam ab naechster Freigabe).
+    guest_long_description_released = models.BooleanField("Langbeschreibung fuer Besucher freigegeben",
+                                                           default=False)
+    guest_details_released = models.BooleanField("Detailangaben fuer Besucher freigegeben", default=False)
+    guest_contacts_released = models.BooleanField("Kontaktangaben fuer Besucher freigegeben", default=False)
 
     review_state = models.CharField(max_length=16, choices=ReviewState.choices, default=ReviewState.DRAFT)
     work_version = models.PositiveIntegerField(default=1)
@@ -212,6 +248,8 @@ class Location(models.Model):
     review_feedback = models.TextField("Rueckmeldung an Betreuer", blank=True)
     internal_notes = models.TextField("Interne Notizen", blank=True)
     editorial_notes = models.TextField("Redaktionsnotizen (nicht fuer Betreuer)", blank=True)
+    # Betreuung hat seit der letzten Einreichung/Freigabe geaendert: Direktfreigabe gesperrt.
+    owner_changes_pending = models.BooleanField(default=False, editable=False)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
@@ -234,6 +272,10 @@ class Location(models.Model):
     def __str__(self) -> str:
         return self.title or f"Objekt {self.public_id}"
 
+    def save(self, *args, **kwargs):
+        self.categories = normalize_categories(self.categories)
+        super().save(*args, **kwargs)
+
 
 class PublishedLocation(models.Model):
     """Redaktionell freigegebener Stand. Enthaelt nur Gast- und Mitgliedsfelder.
@@ -255,7 +297,7 @@ class PublishedLocation(models.Model):
 
     # GAST-Projektion
     title = models.CharField(max_length=160)
-    category = models.CharField(max_length=32, choices=Category.choices)
+    categories = models.JSONField(default=list)
     preview_text = models.CharField(max_length=400)
     place_text = models.CharField(max_length=120)
     preview_lat = models.DecimalField(max_digits=9, decimal_places=6)
@@ -272,6 +314,10 @@ class PublishedLocation(models.Model):
     contact_email = models.EmailField(blank=True)
     contact_phone = models.CharField(max_length=40, blank=True)
     contact_website = models.URLField(blank=True)
+    # Einzelfreigaben fuer nicht angemeldete Besucher (eingefroren mit der Freigabe).
+    guest_long_description_released = models.BooleanField(default=False)
+    guest_details_released = models.BooleanField(default=False)
+    guest_contacts_released = models.BooleanField(default=False)
     is_demo = models.BooleanField(default=False)
 
     class Meta:
@@ -298,9 +344,13 @@ class Photo(models.Model):
     public_id = models.CharField(max_length=16, unique=True, default=new_public_id, editable=False)
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="photos")
     storage_key = models.CharField(max_length=64, unique=True)  # serverseitig vergeben
-    alt_text = models.CharField(max_length=200, blank=True)
+    # Bildbeschreibung: in der Galerie angezeigt und zugleich Alternativtext (Screenreader).
+    alt_text = models.CharField("Bildbeschreibung", max_length=200, blank=True,
+                                help_text="Wird in der Galerie angezeigt und als Alternativtext verwendet.")
     sort_order = models.PositiveSmallIntegerField(default=0)
     visibility = models.CharField(max_length=16, choices=Visibility.choices, default=Visibility.INTERNAL)
+    # Bestaetigung beim Hochladen: selbst erstellt oder Nutzungsrechte (Copyright) geklaert.
+    rights_confirmed_at = models.DateTimeField("Bildrechte bestaetigt am", null=True, blank=True, editable=False)
     is_withdrawn = models.BooleanField(default=False)
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
@@ -498,3 +548,45 @@ class InitialAccount(models.Model):
     class Meta:
         verbose_name = "Initialkonto"
         verbose_name_plural = "Initialkonten"
+
+
+class LocationNotice(models.Model):
+    """Mitteilung an die Betreuung ueber redaktionelle Anpassungen und Entscheide.
+
+    Sichtbar im Betreuerportal und in der Verwaltung; Entscheide zusaetzlich per Mail.
+    Enthaelt nur Bereichsnamen, keine Inhalte und keine Redaktionsnotizen.
+    """
+
+    class Kind(models.TextChoices):
+        PUBLISHED = "published", "Eingereichte Fassung freigegeben"
+        DIRECT_PUBLISHED = "direct_published", "Von der Redaktion angepasst und freigegeben"
+        REJECTED = "rejected", "Eingereichte Fassung zurueckgewiesen"
+        WITHDRAWN = "withdrawn", "Veroeffentlichung durch die Redaktion zurueckgezogen"
+        PHOTO_REMOVED = "photo_removed", "Veroeffentlichtes Foto durch die Redaktion entfernt"
+        EDITOR_EDIT = "editor_edit", "Arbeitsfassung durch die Redaktion bearbeitet"
+
+    class MailStatus(models.TextChoices):
+        NONE = "none", "keine Mail vorgesehen"
+        SENT = "sent", "Mail gesendet"
+        FAILED = "failed", "Mail nicht zugestellt"
+        BUDGET = "budget", "Mail nicht gesendet (Budget)"
+        NO_RECIPIENT = "no_recipient", "keine bestaetigte Betreuungsadresse"
+
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="notices")
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    kind = models.CharField(max_length=24, choices=Kind.choices)
+    sections = models.CharField(max_length=300, blank=True)
+    feedback = models.TextField(blank=True)
+    work_version = models.PositiveIntegerField(default=0)
+    mail_status = models.CharField(max_length=16, choices=MailStatus.choices, default=MailStatus.NONE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Mitteilung an Betreuung"
+        verbose_name_plural = "Mitteilungen an Betreuung"
+        ordering = ["-created_at", "-id"]

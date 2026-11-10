@@ -56,9 +56,9 @@ class GuestBrowserTests(StaticLiveServerTestCase):
     def test_desktop_map_and_list_are_synchronized(self):
         page, requests = self._page(viewport={"width": 1280, "height": 800})
         page.goto(self.live_server_url + "/")
-        page.wait_for_selector("#results li")
+        page.wait_for_selector("#results > li")
         page.wait_for_selector(".leaflet-interactive")
-        self.assertEqual(page.locator("#results li").count(), 10)
+        self.assertEqual(page.locator("#results > li").count(), 10)
         start_status = page.text_content("#status")
         start_markers = page.locator("path.leaflet-interactive").count()
         self.assertGreater(start_markers, 0)
@@ -72,8 +72,8 @@ class GuestBrowserTests(StaticLiveServerTestCase):
         self.assertNotEqual(start_status, zoomed_status)
 
         # Klick in der Liste markiert den Eintrag.
-        page.locator("#results li").first.click(position={"x": 5, "y": 40})
-        self.assertEqual(page.locator("#results li.active").count(), 1)
+        page.locator("#results > li").first.click(position={"x": 5, "y": 40})
+        self.assertEqual(page.locator("#results > li.active").count(), 1)
 
         # Keine Requests an fremde Hosts (insbesondere kein Direktzugriff auf swisstopo).
         live_host = urlparse(self.live_server_url).netloc
@@ -93,19 +93,119 @@ class GuestBrowserTests(StaticLiveServerTestCase):
     def test_guest_page_contains_no_member_data(self):
         page, _ = self._page(viewport={"width": 1280, "height": 800})
         page.goto(self.live_server_url + "/")
-        page.wait_for_selector("#results li")
+        page.wait_for_selector("#results > li")
         html = page.content()
         for marker in ("CANARY-", "MITGLIEDERDETAIL-", "@example.org"):
             self.assertNotIn(marker, html)
-        page.locator("#results li h2 a").first.click()
+        page.locator("#results > li h2 a").first.click()
         page.wait_for_selector("article.preview")
         self.assertIn("nur für angemeldete Mitglieder", page.content())
         self.assertNotIn("MITGLIEDERDETAIL-", page.content())
 
+    def test_category_checkboxes_combine_and_cards_show_tags(self):
+        page, requests = self._page(viewport={"width": 1280, "height": 800})
+        page.goto(self.live_server_url + "/")
+        page.wait_for_selector("#results > li .tags .tag")
+        all_status = page.text_content("#status")
+        with page.expect_response(lambda r: "/api/liste" in r.url and "category=bildung" in r.url):
+            page.check('#category-filter input[value="bildung"]')
+        page.wait_for_timeout(300)
+        only_one = page.text_content("#status")
+        with page.expect_response(lambda r: "/api/liste" in r.url and "category=bildung" in r.url
+                                  and "category=freizeit" in r.url):
+            page.check('#category-filter input[value="freizeit"]')
+        page.wait_for_timeout(300)
+        both = page.text_content("#status")
+        count = lambda text: int(text.split()[0])  # noqa: E731
+        self.assertLess(count(only_one), count(all_status))
+        self.assertGreater(count(both), count(only_one))
+        self.assertIn("category=bildung", page.url)
+        self.assertIn("category=freizeit", page.url)
+        # Jede Karte zeigt mindestens eine der gewaehlten Kategorien.
+        for card_tags in page.locator("#results > li .tags").all_text_contents():
+            self.assertTrue("Bildung" in card_tags or "Freizeit" in card_tags, card_tags)
+        # Karte nimmt sichtbar mehr als die fruehere feste Breite ein.
+        width = page.evaluate("document.getElementById('list-panel').getBoundingClientRect().width")
+        self.assertGreater(width, 26 * 16)
+
+    def test_gallery_opens_with_description_and_only_guest_photos(self):
+        from locations.models import Photo
+        from locations.services import images
+        from locations.services import publishing as pub_service
+
+        from .test_stage3_member import image_bytes, make_published
+
+        loc, pub, _created = make_published(1)
+        extra = images.process_upload(image_bytes())
+        Photo.objects.create(location=loc, storage_key=extra.storage_key, alt_text="Zweites Gastbild Garten",
+                             visibility=Photo.Visibility.GUEST_PREVIEW, sort_order=5)
+        loc.refresh_from_db()
+        pub_service.submit(loc.pk, None, loc.work_version)
+        pub_service.publish(loc.pk, None, loc.work_version)
+
+        page, _ = self._page(viewport={"width": 1280, "height": 800})
+        page.goto(self.live_server_url + f"/objekt/{pub.public_id}/")
+        self.assertEqual(page.locator(".gallery-item").count(), 2)  # nur Gastbilder
+        page.locator(".gallery-item").first.click()
+        page.wait_for_selector(".lightbox:not([hidden])")
+        page.wait_for_function("document.querySelector('.lightbox img').naturalWidth > 0")
+        self.assertIn("Alt guest_preview", page.text_content(".lightbox-desc"))
+        self.assertEqual(page.get_attribute(".lightbox img", "alt"), page.text_content(".lightbox-desc"))
+        self.assertEqual(page.text_content(".lightbox-count"), "1 / 2")
+        page.keyboard.press("ArrowRight")
+        self.assertEqual(page.text_content(".lightbox-desc"), "Zweites Gastbild Garten")
+        self.assertEqual(page.text_content(".lightbox-count"), "2 / 2")
+        page.keyboard.press("Escape")
+        self.assertTrue(page.locator(".lightbox").is_hidden())
+
+    def test_visitor_switches_to_aerial_imagery(self):
+        page, requests = self._page(viewport={"width": 1280, "height": 800})
+        page.goto(self.live_server_url + "/")
+        page.wait_for_selector(".basemap-toggle")
+        self.assertEqual(page.get_attribute('.basemap-toggle [data-basemap="karte"]', "aria-pressed"), "true")
+        self.assertFalse(any("/map/luftbild/" in u for u in requests))
+        with page.expect_response(lambda r: "/map/luftbild/" in r.url and r.status == 200):
+            page.click('.basemap-toggle [data-basemap="luftbild"]')
+        self.assertEqual(page.get_attribute('.basemap-toggle [data-basemap="luftbild"]', "aria-pressed"), "true")
+        self.assertIn("basis=luftbild", page.url)
+        # Wahl bleibt beim erneuten Laden erhalten (URL), Rueckweg zur Karte moeglich.
+        page.reload()
+        page.wait_for_selector(".basemap-toggle")
+        self.assertEqual(page.get_attribute('.basemap-toggle [data-basemap="luftbild"]', "aria-pressed"), "true")
+        with page.expect_response(lambda r: "/map/tiles/" in r.url):
+            page.click('.basemap-toggle [data-basemap="karte"]')
+        self.assertNotIn("basis=luftbild", page.url)
+
+    def test_owner_picks_point_on_map_and_takes_coordinates(self):
+        from locations.roles import OBJECT_MANAGER
+
+        from .test_stage1_guest import make_location
+        from .test_stage4_work import verified
+
+        client, user = verified("betreuung-karte@example.org", groups=[OBJECT_MANAGER])
+        loc = make_location(title="Waldhaus", managed_by=user, exact_lat=None, exact_lon=None)
+        page, _ = self._page(viewport={"width": 1280, "height": 900})
+        page.context.add_cookies([{"name": settings.SESSION_COOKIE_NAME,
+                                   "value": client.cookies[settings.SESSION_COOKIE_NAME].value,
+                                   "url": self.live_server_url}])
+        page.goto(self.live_server_url + f"/meine-objekte/{loc.public_id}/")
+        self.assertEqual(page.input_value("#id_exact_lat"), "")
+        page.click("[data-location-picker] button")
+        page.wait_for_selector(".picker-dialog[open] .leaflet-tile-loaded")
+        self.assertTrue(page.is_disabled(".picker-foot button:not(.secondary)"))
+        page.locator(".picker-map").click(position={"x": 400, "y": 250})
+        self.assertIn("Gewählt:", page.text_content(".picker-coords"))
+        page.click('.picker-dialog .basemap-toggle [data-basemap="luftbild"]')
+        page.click(".picker-foot button:not(.secondary)")
+        lat, lon = float(page.input_value("#id_exact_lat")), float(page.input_value("#id_exact_lon"))
+        self.assertTrue(45.8 <= lat <= 47.85 and 5.9 <= lon <= 10.55, (lat, lon))
+        self.assertIn("Koordinaten übernommen", page.text_content(".picker-status"))
+        self.assertFalse(page.locator(".picker-dialog").evaluate("d => d.open"))
+
     def test_mobile_toggle_loads_map_only_when_shown(self):
         page, requests = self._page(viewport={"width": 390, "height": 800}, is_mobile=True)
         page.goto(self.live_server_url + "/")
-        page.wait_for_selector("#results li")
+        page.wait_for_selector("#results > li")
         self.assertFalse(any("/map/tiles/" in u for u in requests))
         page.click("#show-map")
         page.wait_for_selector(".leaflet-interactive")

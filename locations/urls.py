@@ -12,4 +12,5 @@ urlpatterns = [
     path("objekt/<str:public_id>/oeffnen/", views.open_details, name="open_details"),
     path("medien/<str:public_id>/<str:variant>.jpg", views.photo, name="photo"),
     path("map/tiles/<int:z>/<int:x>/<int:y>.jpeg", views.tile, name="tile"),
+    path("map/luftbild/<int:z>/<int:x>/<int:y>.jpeg", views.tile, {"layer": "luftbild"}, name="tile_aerial"),
 ]

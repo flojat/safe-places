@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ loc.title|default:"Objekt" }} bearbeiten · Adresskarte{% endblock %}
+{% block head %}{% load static %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+<link rel="stylesheet" href="{% static 'css/map_tools.css' %}">{% endblock %}
 {% block content %}
 <section class="portal">
   <p><a href="{% url 'portal:list' %}">← Meine Objekte</a></p>
@@ -11,6 +13,14 @@
     <aside class="notice"><strong>Rückmeldung der Redaktion:</strong> <span class="prewrap">{{ loc.review_feedback }}</span></aside>
   {% endif %}
   <p><a href="{% url 'portal:preview' loc.public_id %}">Vorschau je Sichtbarkeitsstufe</a></p>
+  {% if notices %}
+  <details class="notices" open>
+    <summary>Mitteilungen der Redaktion</summary>
+    <ul>{% for n in notices %}
+      <li>{{ n.created_at|date:"d.m.Y H:i" }} · {{ n.get_kind_display }}{% if n.sections %} · Bereiche: {{ n.sections }}{% endif %}{% if n.feedback %}<br><span class="prewrap">{{ n.feedback }}</span>{% endif %}</li>
+    {% endfor %}</ul>
+  </details>
+  {% endif %}
 
   <div class="actions">
     <form method="post" action="{% url 'portal:submit' loc.public_id %}">{% csrf_token %}
@@ -34,18 +44,30 @@
       <p class="geocode-status" aria-live="polite"></p>
       <ol class="geocode-results"></ol>
     </div>
+    <div class="location-picker" data-location-picker data-lat-field="id_exact_lat" data-lon-field="id_exact_lon">
+      <button type="button">Punkt auf Karte wählen</button>
+      <span class="muted">Alternative zur Adresssuche, z. B. für Waldhaus oder Grillplatz (Karte oder Luftbild).</span>
+      <p class="picker-status muted" aria-live="polite"></p>
+    </div>
     <p class="muted">Die genaue Lage ist intern. Gäste sehen nur die grobe Vorschaulage (ohne Angabe: ca. 2 km Raster). Mitglieder sehen die genaue Lage nur, wenn Sie sie ausdrücklich freigeben.</p>
     <button type="submit">Arbeitsfassung speichern</button>
   </form>
 
   <h2>Fotos</h2>
+  <aside class="copyright-note" role="note">
+    <strong>Wichtig – Bildrechte (Copyright):</strong> Sie sind als Objektbetreuung verantwortlich dafür, dass
+    für jedes hochgeladene Bild die Nutzungsrechte geklärt sind. Verwenden Sie nur <strong>eigene Bilder</strong>
+    oder Bilder, für deren Veröffentlichung Sie die Erlaubnis der Urheberin bzw. des Urhebers nachweislich besitzen.
+    Bilder aus dem Internet, von Websites oder aus sozialen Medien dürfen ohne Erlaubnis nicht verwendet werden.
+  </aside>
   <div class="photo-grid">
   {% for p in photos %}
     <div class="photo-card{% if p.is_withdrawn %} withdrawn{% endif %}">
       <img src="{% url 'locations:photo' p.public_id 'vorschau' %}" alt="{{ p.alt_text }}" width="160">
       {% if p.is_withdrawn %}<p class="muted">zurückgezogen</p>{% else %}
       <form method="post" action="{% url 'portal:photo_update' loc.public_id p.public_id %}">{% csrf_token %}
-        <input name="alt_text" value="{{ p.alt_text }}" maxlength="200" aria-label="Alternativtext">
+        <label class="muted small" for="desc-{{ p.public_id }}">Bildbeschreibung</label>
+        <input id="desc-{{ p.public_id }}" name="alt_text" value="{{ p.alt_text }}" maxlength="200">
         <select name="visibility" aria-label="Sichtbarkeit">
           <option value="internal" {% if p.visibility == 'internal' %}selected{% endif %}>Intern</option>
           <option value="guest_preview" {% if p.visibility == 'guest_preview' %}selected{% endif %}>Gastvorschau</option>
@@ -65,4 +87,7 @@
   </form>
 </section>
 {% endblock %}
-{% block scripts %}{% load static %}<script src="{% static 'js/geocode.js' %}"></script>{% endblock %}
+{% block scripts %}{% load static %}<script src="{% static 'js/geocode.js' %}"></script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/basemaps.js' %}"></script>
+<script src="{% static 'js/location_picker.js' %}"></script>{% endblock %}
