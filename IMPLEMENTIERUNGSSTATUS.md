@@ -88,7 +88,8 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-10 | Zielserver rc4: `no_dhe` scheitert (MX ohne ECDHE); openssl bestaetigt TLS 1.2 nur mit DHE. Betreiberentscheid `EMAIL_TLS_PROFILE=legacy_dh`; echter Testversand an Betreiber-Testadresse zugestellt (Zertifikats-/Hostnamenpruefung aktiv) | BESTANDEN mit dokumentierter Abschwaechung |
 | 2026-11-10 | Zielserver: Initialkonten provisioniert, admin=complete, Einladungen editor/object_manager/visitor versendet; HSTS gesetzt; Cronjobs per crontab; `check_tile_cache_update` scheitert (Timeout/502) | teilweise |
 | 2026-11-10 | Diagnose auf Zielserver: api3 haengt/502 nur bei Kombination eigener User-Agent + `Accept: application/json`; mit `Accept: */*` 200 in 0,04 s (`application/geo+json`) | Ursache extern |
-| 2026-11-10 | rc5: REST-Abrufe (cacheUpdate, Adresssuche) mit `Accept: */*`, Antwortpruefung unveraendert; W005/W021 in Produktion bewusst stummgeschaltet; 243 Tests lokal | BESTANDEN (Zielserver ausstehend) |
+| 2026-11-10 | rc5: REST-Abrufe (cacheUpdate, Adresssuche) mit `Accept: */*`, Antwortpruefung unveraendert; W005/W021 in Produktion bewusst stummgeschaltet; 243 Tests lokal | BESTANDEN |
+| 2026-11-10 | Zielserver rc5: deploy --apply, Start 200, `check_tile_cache_update` OK (neue Generation), check --deploy ohne Hinweise (2 silenced), Adresssuche im Browser OK; doctor WARN nur SMTP legacy_dh; Initialkonten alle complete | BESTANDEN |
 | – | MX auf >= 2048-Bit-DH oder ECDHE aktualisieren lassen, danach `EMAIL_TLS_PROFILE=default` | OFFEN (externer MX-Betreiber) |
 
 ## Entscheidungen
@@ -170,7 +171,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 
 ## Stand Inbetriebnahme Zielserver (2026-11-10, Feierabend)
 
-Laeuft produktiv ueber Passenger, aktives Release **v0.5.0-rc4**; HTTPS, statische Dateien und Sperren der
+Laeuft produktiv ueber Passenger, aktives Release **v0.5.0-rc5** (Initialkonten alle aktiv, Cronjobs per crontab, HSTS gesetzt); HTTPS, statische Dateien und Sperren der
 privaten Pfade geprueft; SMTP-Testversand zugestellt (`EMAIL_TLS_PROFILE=legacy_dh`, siehe oben).
 
 Naechste Schritte (Befehle in der Sitzung vorbereitet, Ausfuehrung durch den Betreiber):
