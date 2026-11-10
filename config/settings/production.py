@@ -23,6 +23,9 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = ENV.get_int("SECURE_HSTS_SECONDS", 0)  # vorsichtig erst nach HTTPS-Pruefung erhoehen
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
+# Bewusste Entscheidung (docs/SECURITY.md): Subdomains unbekannt, kein Preload. Nur diese beiden
+# Hinweise stummschalten; W004 (HSTS ganz aus) bleibt sichtbar.
+SILENCED_SYSTEM_CHECKS = ["security.W005", "security.W021"]
 
 # Nur eine ausdruecklich bestaetigte Proxykette; sonst keine Forwarded-Header vertrauen.
 if ENV.get_bool("TRUST_X_FORWARDED_PROTO", False):

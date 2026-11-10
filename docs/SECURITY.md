@@ -14,8 +14,8 @@ Initialkonten; Installationsroutine (Redaktion, TOCTOU, Lock, Archivsicherheit, 
 
 ## `check --deploy` (synthetische Produktionswerte)
 
-Verbleibende Hinweise bewusst: W005/W021 (HSTS `includeSubDomains`/`preload` aus, Subdomains unbekannt);
-W004 solange `SECURE_HSTS_SECONDS` nicht gesetzt ist (erst nach geprueftem HTTPS setzen).
+Bewusst stummgeschaltet (`SILENCED_SYSTEM_CHECKS` in `production.py`): W005/W021 (HSTS
+`includeSubDomains`/`preload` aus, Subdomains unbekannt). Sichtbar bleibt W004, solange `SECURE_HSTS_SECONDS` nicht gesetzt ist (erst nach geprueftem HTTPS setzen).
 
 ## Bekannte Grenzen
 

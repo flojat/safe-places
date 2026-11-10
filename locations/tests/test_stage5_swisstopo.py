@@ -200,10 +200,11 @@ class GatewayUnitTests(CacheIsolationMixin, TestCase):
         self.assertIsNotNone(swisstopo._acquire_fetch_lock("k", 30))
 
     def test_cache_update_changes_generation_and_counts_rest_budget(self):
-        payload = lambda value: (lambda *a, **k: (200, "application/json", json.dumps({"cache_type": "wmts_native", "cache_update": value}).encode()))
+        payload = lambda value: (lambda *a, **k: (200, "application/geo+json", json.dumps({"cache_type": "wmts_native", "cache_update": value}).encode()))
         with mock.patch(OPEN, side_effect=payload("2026-11-01T08:00:00")) as upstream:
             call_command("check_tile_cache_update", stdout=io.StringIO())
         self.assertIn("/rest/services/ech/MapServer/ch.swisstopo.pixelkarte-farbe/cacheUpdate", upstream.call_args.args[0])
+        self.assertEqual(upstream.call_args.kwargs["accept"], "*/*")
         gen = TileCacheState.objects.get().generation
         with mock.patch(OPEN, side_effect=payload("2026-11-01T08:00:00")):
             call_command("check_tile_cache_update", stdout=io.StringIO())
@@ -328,6 +329,7 @@ class GeocodeTests(TestCase):
         self.assertIn("origins=address", called)
         self.assertIn("sr=4326", called)
         self.assertIn("limit=5", called)
+        self.assertEqual(upstream.call_args.kwargs["accept"], "*/*")
         self.assertEqual(called.count("type="), 1)
 
     def test_access_rules(self):

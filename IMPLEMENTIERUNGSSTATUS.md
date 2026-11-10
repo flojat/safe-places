@@ -86,6 +86,9 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-10 | rc4: SMTP-Backend mit Profilen (`no_dhe` ohne Absenkung, `legacy_dh` als dokumentierte Abschwaechung; Zertifikats-/Hostnamenpruefung immer aktiv), private Ordner unabhaengig von umask, genauere Manifestmeldungen; 243 Tests lokal und mit Debian-Python 3.11.2/OpenSSL 3.0.22 | BESTANDEN |
 | 2026-11-10 | Zielserver: Initialkonten-Plan (4x create) | BESTANDEN |
 | 2026-11-10 | Zielserver rc4: `no_dhe` scheitert (MX ohne ECDHE); openssl bestaetigt TLS 1.2 nur mit DHE. Betreiberentscheid `EMAIL_TLS_PROFILE=legacy_dh`; echter Testversand an Betreiber-Testadresse zugestellt (Zertifikats-/Hostnamenpruefung aktiv) | BESTANDEN mit dokumentierter Abschwaechung |
+| 2026-11-10 | Zielserver: Initialkonten provisioniert, admin=complete, Einladungen editor/object_manager/visitor versendet; HSTS gesetzt; Cronjobs per crontab; `check_tile_cache_update` scheitert (Timeout/502) | teilweise |
+| 2026-11-10 | Diagnose auf Zielserver: api3 haengt/502 nur bei Kombination eigener User-Agent + `Accept: application/json`; mit `Accept: */*` 200 in 0,04 s (`application/geo+json`) | Ursache extern |
+| 2026-11-10 | rc5: REST-Abrufe (cacheUpdate, Adresssuche) mit `Accept: */*`, Antwortpruefung unveraendert; W005/W021 in Produktion bewusst stummgeschaltet; 243 Tests lokal | BESTANDEN (Zielserver ausstehend) |
 | – | MX auf >= 2048-Bit-DH oder ECDHE aktualisieren lassen, danach `EMAIL_TLS_PROFILE=default` | OFFEN (externer MX-Betreiber) |
 
 ## Entscheidungen

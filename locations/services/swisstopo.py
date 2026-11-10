@@ -42,6 +42,10 @@ logger = logging.getLogger("locations.swisstopo")
 
 TILE_HOST = "https://wmts.geo.admin.ch"
 REST_HOST = "https://api3.geo.admin.ch"
+# Bewusst "*/*" statt "application/json": Auf dem Zielserver beobachtet (2026-11-10), dass
+# api3 mit "Accept: application/json" plus eigenem User-Agent sekundenlang haengt bzw. 502
+# liefert, mit "*/*" sofort antwortet. Die Antwort wird weiterhin streng geprueft (JSON-Typ, Groesse).
+REST_ACCEPT = "*/*"
 _ISO_RE = re.compile(r"^[0-9T:\-+.Z ]{10,40}$")
 
 
@@ -241,7 +245,7 @@ def get_tile(z: int, x: int, y: int) -> bytes:
 def check_cache_update() -> bool:
     """Prueft den dokumentierten cacheUpdate-Endpunkt. Bei Aenderung neue Generation."""
     url = f"{REST_HOST}/rest/services/ech/MapServer/{settings.SWISSTOPO_LAYER}/cacheUpdate"
-    status, ctype, body = _fetch("rest", url, accept="application/json",
+    status, ctype, body = _fetch("rest", url, accept=REST_ACCEPT,
                                  timeout=settings.SWISSTOPO_REST_TIMEOUT, max_bytes=4096)
     if status != 200 or "json" not in ctype.lower() or len(body) > 4096:
         raise ProviderUnavailable("invalid_response")
@@ -306,7 +310,7 @@ def geocode(text: str) -> list[dict]:
         "sr": "4326", "limit": settings.GEOCODE_MAX_RESULTS,
     })
     url = f"{REST_HOST}/rest/services/ech/SearchServer?{params}"
-    status, ctype, body = _fetch("rest", url, accept="application/json",
+    status, ctype, body = _fetch("rest", url, accept=REST_ACCEPT,
                                  timeout=settings.SWISSTOPO_REST_TIMEOUT,
                                  max_bytes=settings.SWISSTOPO_REST_MAX_BYTES)
     if status != 200 or "json" not in ctype.lower() or len(body) > settings.SWISSTOPO_REST_MAX_BYTES:
