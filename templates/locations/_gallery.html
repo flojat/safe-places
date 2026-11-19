@@ -1,7 +1,8 @@
-{% comment %}Galerie: photos = Liste {thumb, full, description}; nur bereits berechtigte Bilder.{% endcomment %}
-{% if photos %}
-<div class="gallery" data-gallery="gallery-data">
+{% comment %}Galerie: photos = Liste {thumb, full, description}; nur bereits berechtigte Bilder.
+Optional gallery_id fuer mehrere Galerien auf einer Seite (Standard: gallery-data).{% endcomment %}
+{% if photos %}{% with gid=gallery_id|default:"gallery-data" %}
+<div class="gallery" data-gallery="{{ gid }}">
   {% for p in photos %}<a class="gallery-item" href="{{ p.full }}" data-gallery-index="{{ forloop.counter0 }}" aria-label="Bild {{ forloop.counter }} von {{ photos|length }} vergrössern"><img src="{{ p.thumb }}" alt="{{ p.description }}" loading="lazy"></a>{% endfor %}
 </div>
-{{ photos|json_script:"gallery-data" }}
-{% endif %}
+{{ photos|json_script:gid }}
+{% endwith %}{% endif %}

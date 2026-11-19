@@ -24,11 +24,14 @@ from django.utils.html import format_html
 
 from . import reauth
 from .forms import PhotoUploadForm, categories_field, validate_guest_releases
-from .models import AuditEvent, Category, Location, LocationNotice, Photo, Provider, PublishedLocation, PublishedPhoto
+from .models import (
+    AuditEvent, Category, ExperienceReport, ExperienceReportPhoto, Location, LocationNotice, Photo, Provider,
+    PublishedLocation, PublishedPhoto,
+)
 from .permissions import can_administer, can_publish
 from . import rate_limits, request_limits
 from .roles import EDITOR, OBJECT_MANAGER, default_object_manager, ensure_role_groups
-from .services import owner_notices, photos, publishing
+from .services import experience_reports, owner_notices, photos, publishing
 
 User = get_user_model()
 
@@ -361,6 +364,101 @@ class LocationAdmin(NoBulkDeleteMixin, admin.ModelAdmin):
             "max_photos": settings.MAX_ACTIVE_PHOTOS_PER_LOCATION,
         }
         return TemplateResponse(request, "admin/locations/location/photos.html", context)
+
+
+# --- Erfahrungsberichte (Redaktion) ---------------------------------------------------
+
+class ReportStateFilter(admin.SimpleListFilter):
+    title = "Status"
+    parameter_name = "status"
+
+    def lookups(self, request, model_admin):
+        return ExperienceReport.State.choices
+
+    def queryset(self, request, queryset):
+        if self.value() in ExperienceReport.State.values:
+            return queryset.filter(state=self.value())
+        return queryset
+
+
+@admin.register(ExperienceReport)
+class ExperienceReportAdmin(NoBulkDeleteMixin, admin.ModelAdmin):
+    """Pruefen und Freigeben von Erfahrungsberichten: nur Redaktion/Administration.
+
+    Statt des generischen Formulars eine Pruefansicht mit Einzelentscheid (kein Massenentscheid).
+    """
+
+    list_display = ["created_at", "location", "state", "short_text", "photo_count", "editor_mail_status"]
+    list_filter = [ReportStateFilter]
+    search_fields = ["public_id", "location__title"]
+    actions = None
+    list_select_related = ["location"]
+
+    def has_module_permission(self, request):
+        return can_publish(request)
+
+    def has_view_permission(self, request, obj=None):
+        return can_publish(request)
+
+    def has_change_permission(self, request, obj=None):
+        return can_publish(request)
+
+    def has_add_permission(self, request):
+        return False  # Erfassen nur ueber die Mitgliederansicht des Objekts
+
+    @admin.display(description="Text")
+    def short_text(self, obj):
+        return obj.text if len(obj.text) <= 80 else obj.text[:77] + "..."
+
+    @admin.display(description="Fotos")
+    def photo_count(self, obj):
+        return obj.photos.filter(is_removed=False).count()
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        if not can_publish(request):
+            raise Http404()
+        report = get_object_or_404(ExperienceReport.objects.select_related("location", "reviewed_by"),
+                                   pk=object_id)
+        url = reverse("admin:locations_experiencereport_change", args=[report.pk])
+        if request.method == "POST":
+            action = request.POST.get("action")
+            try:
+                if action in ("save", "publish"):
+                    if experience_reports.edit_text(report.pk, request.user, request.POST.get("text", "")):
+                        messages.success(request, "Text gespeichert.")
+                for photo_id in request.POST.getlist("remove_photo"):
+                    photo = ExperienceReportPhoto.objects.filter(public_id=photo_id, report=report).first()
+                    if photo is not None:
+                        experience_reports.remove_photo(photo.pk, request.user)
+                        messages.success(request, "Foto entfernt.")
+                if action == "publish":
+                    _report, notice = experience_reports.publish(report.pk, request.user)
+                    messages.success(request, "Erfahrungsbericht freigegeben.")
+                    if notice is not None and notice.mail_status != LocationNotice.MailStatus.SENT:
+                        messages.warning(request, "Objektbetreuung im Portal informiert; Mail: "
+                                                  f"{notice.get_mail_status_display()}.")
+                elif action == "reject":
+                    experience_reports.reject(report.pk, request.user, request.POST.get("feedback", ""))
+                    messages.success(request, "Erfahrungsbericht zurueckgewiesen; Fotos geloescht.")
+                elif action == "withdraw":
+                    experience_reports.withdraw(report.pk, request.user)
+                    messages.success(request, "Erfahrungsbericht zurueckgezogen.")
+                elif action != "save":
+                    raise Http404()
+            except experience_reports.ReportRejected as exc:
+                messages.error(request, str(exc))
+            except experience_reports.StateConflict as exc:
+                messages.error(request, str(exc))
+            return HttpResponseRedirect(url)
+        pub = PublishedLocation.objects.filter(location=report.location).first()
+        context = {
+            **self.admin_site.each_context(request), "opts": self.model._meta, "report": report,
+            "photos": list(report.photos.all()), "location_published": bool(pub and pub.is_active),
+            "author_is_editor": report.author is not None and experience_reports._is_editor(report.author),
+            "max_chars": ExperienceReport._meta.get_field("text").max_length,
+            "title": f"Erfahrungsbericht pruefen: {report.location}",
+        }
+        return TemplateResponse(request, "admin/locations/experiencereport/review.html", context)
 
 
 @admin.register(Category)

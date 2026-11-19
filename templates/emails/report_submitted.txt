@@ -1,0 +1,9 @@
+{% autoescape off %}Guten Tag
+
+Zum Objekt «{{ title }}» wurde ein neuer Erfahrungsbericht eingereicht
+(Kennung {{ report_id }}, {{ length }} Zeichen, {{ photo_count }} Foto{{ photo_count|pluralize:"s" }}).
+
+Bitte prüfen Sie den Bericht und geben Sie ihn frei oder weisen Sie ihn zurück:
+nach der Anmeldung unter «Verwaltung» › «Erfahrungsberichte».
+Diese Nachricht enthält bewusst keine Links und keine Inhalte des Berichts.
+{% endautoescape %}

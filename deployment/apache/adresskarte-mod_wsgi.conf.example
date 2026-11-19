@@ -32,8 +32,8 @@
     # KEIN Alias fuer /media, var, shared, repository, releases, Tile-Cache oder Backups.
     # Private Medien und Kacheln werden ausschliesslich ueber Django-Views ausgeliefert.
 
-    # Uploads: 10 MiB Bild + Formular
-    LimitRequestBody 11534336
+    # Uploads: bis 3 Bilder à 10 MiB (Erfahrungsbericht) + Formular = 33 MiB
+    LimitRequestBody 34603008
 
     # Tokenhaltige URLs nicht ins Zugriffslog schreiben.
     SetEnvIf Request_URI "^/konto/(email-bestaetigen|email-aendern|aktivieren|passwort-neu)/" token_url

@@ -36,8 +36,8 @@ Alias /static/ <WEBROOT>/private/adresskarte/current/staticfiles/
 
 # Rechte (setzt deploy selbst): adresskarte/releases/<id> 710, staticfiles 750/640, shared 700.
 
-# Uploads: 10 MiB Bild + Formular
-LimitRequestBody 11534336
+# Uploads: bis 3 Bilder à 10 MiB (Erfahrungsbericht) + Formular = 33 MiB
+LimitRequestBody 34603008
 
 # Hinweise:
 # - Passenger liefert vorhandene Dateien aus dem DocumentRoot (<WEBROOT>/web) direkt aus. Dort duerfen

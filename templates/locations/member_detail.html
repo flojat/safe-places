@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{% static 'css/map_tools.css' %}">{% endif %}{% endblock %}
 {% block content %}
 <article class="preview member-detail">
+  {% include "locations/_messages.html" %}
   <h1>{{ obj.title }}</h1>
   <p class="muted place">{{ obj.place }}</p>
   {% if obj.categories %}<ul class="tags" aria-label="Kategorien">{% for c in obj.categories %}<li class="tag">{{ c.label }}</li>{% endfor %}</ul>{% endif %}
@@ -38,6 +39,19 @@
     {% include "locations/_gallery.html" with photos=obj.gallery %}
   </section>
   {% endif %}
+  <section class="reports">
+    <h2>Erfahrungsberichte von Mitgliedern</h2>
+    {% for r in reports %}
+      <article class="report">
+        <p class="muted small">Veröffentlicht am {{ r.published_at|date:"d.m.Y" }}</p>
+        <p class="prewrap">{{ r.text }}</p>
+        {% include "locations/_gallery.html" with photos=r.gallery gallery_id="report-gallery-"|add:r.id %}
+      </article>
+    {% empty %}
+      <p class="muted">Zu diesem Objekt gibt es noch keine veröffentlichten Erfahrungsberichte.</p>
+    {% endfor %}
+    <p><a href="{% url 'locations:report_create' obj.id %}">Eigenen Erfahrungsbericht schreiben</a></p>
+  </section>
   <p class="muted">Freigegeben bis {{ grant.expires_at|date:"d.m.Y H:i" }}. Inhalte dienen nur der persönlichen Kontaktaufnahme.</p>
   <p><a href="{% url 'locations:home' %}">Zurück zur Übersicht</a></p>
 </article>

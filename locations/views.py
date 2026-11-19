@@ -22,9 +22,13 @@ from django.views.decorators.http import require_GET, require_POST, require_safe
 from . import member_access, projections, rate_limits, request_limits
 from .geo import CoordinateError, parse_bbox, tile_intersects_switzerland
 from . import categories as category_store
-from .models import Photo
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
+
+from .forms import REPORT_PHOTO_SLOTS, ExperienceReportForm
+from .models import ExperienceReportPhoto, Photo
 from .permissions import fully_verified_required, is_fully_verified
-from .services import images, swisstopo
+from .services import experience_reports, images, swisstopo
 
 MAX_POINTS = 500
 GUEST_PAGE_SIZE = 10
@@ -159,7 +163,8 @@ def preview(request, public_id: str):
         raise Http404()
 
     if grant is not None:
-        context = {"obj": projections.member_projection(pub), "grant": grant}
+        context = {"obj": projections.member_projection(pub), "grant": grant,
+                   "reports": experience_reports.published_reports(pub)}
         return _no_store(render(request, "locations/member_detail.html", context))
 
     context = {"obj": projections.guest_projection(pub, with_thumb=True, with_released=True), "member": member}
@@ -190,6 +195,61 @@ def open_details(request, public_id: str):
     except member_access.NotAllowed:
         raise Http404()
     return redirect("locations:preview", public_id=public_id)
+
+
+# --- Erfahrungsberichte ----------------------------------------------------------
+
+@require_http_methods(["GET", "POST"])
+@fully_verified_required
+def report_create(request, public_id: str):
+    """Erfahrungsbericht erfassen (Mitglieder inkl. Redaktion). Bucht nichts, gibt nur Gastfelder aus."""
+    pub = projections.visible_published().filter(public_id=public_id).first()
+    if pub is None:
+        raise Http404()
+    form = ExperienceReportForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            rate_limits.reserve([
+                *rate_limits.configured("report_create_account", str(request.user.pk)),
+                *rate_limits.configured("report_create_ip", rate_limits.client_ip(request)),
+            ])
+        except rate_limits.RateLimited as exc:
+            return request_limits.too_many(request, exc.retry_after)
+        except rate_limits.RateLimiterUnavailable:
+            return request_limits.unavailable(request)
+        try:
+            experience_reports.submit(pub.location_id, request.user, form.cleaned_data["text"],
+                                      form.photo_inputs(), photo_consent=form.cleaned_data["photo_consent"])
+        except experience_reports.ReportRejected as exc:
+            form.add_error(None, str(exc))
+        else:
+            messages.success(request, "Vielen Dank! Ihr Erfahrungsbericht wird von der Redaktion geprüft "
+                                      "und erst nach der Freigabe für Mitglieder sichtbar.")
+            return redirect("locations:preview", public_id=public_id)
+    return _no_store(render(request, "locations/report_form.html", {
+        "obj": projections.guest_projection(pub), "form": form,
+        "slots": [(form[name], form[f"{name}_alt"]) for name, *_rest in REPORT_PHOTO_SLOTS],
+        "max_chars": experience_reports.EXPERIENCE_REPORT_MAX_CHARS,
+    }))
+
+
+@require_safe
+@request_limits.limited("photo")
+def report_photo(request, public_id: str, variant: str):
+    internal_variant = _VARIANT_NAMES.get(variant)
+    if internal_variant is None:
+        raise Http404()
+    photo_obj = ExperienceReportPhoto.objects.select_related("report").filter(public_id=public_id).first()
+    if photo_obj is None or not experience_reports.photo_access(request, photo_obj):
+        raise Http404()
+    try:
+        handle = open(images.variant_path(photo_obj.storage_key, internal_variant), "rb")
+    except (ValueError, OSError):
+        raise Http404()
+    response = FileResponse(handle, content_type="image/jpeg")
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Disposition"] = "inline"
+    return _no_store(response)
 
 
 # --- Fotos ---------------------------------------------------------------------

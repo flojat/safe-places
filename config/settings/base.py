@@ -298,3 +298,13 @@ RATE_LIMITS.update({
     "notice_recipient": [(30, _H), (200, _D)],
     "notice_global": [(200, _H), (1000, _D)],
 })
+
+# Erfahrungsberichte (docs/ADR_ERFAHRUNGSBERICHTE.md): max. 3 Fotos (1 Ueberblick, 2 Details).
+EXPERIENCE_REPORT_MAX_PHOTOS = 3
+RATE_LIMITS.update({
+    "report_create_account": [(3, _H), (10, _D)],
+    "report_create_ip": [(10, _H), (40, _D)],
+    # Hinweis an die Redaktion: eigenes Budget, unabhaengig von Sicherheits- und Betreuungsmails.
+    "report_mail_recipient": [(20, _H), (100, _D)],
+    "report_mail_global": [(100, _H), (500, _D)],
+})

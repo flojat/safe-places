@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Erfahrungsbericht · {{ obj.title }} · Adresskarte{% endblock %}
+{% block content %}
+<article class="preview report-form">
+  <p><a href="{% url 'locations:preview' obj.id %}">← {{ obj.title }}</a></p>
+  <h1>Erfahrungsbericht schreiben</h1>
+  <p class="muted">Zu: <strong>{{ obj.title }}</strong> · {{ obj.place }}</p>
+  <p>Teilen Sie Ihre Erfahrungen mit diesem Ort. Die Redaktion prüft jeden Bericht; sichtbar wird er erst nach
+     der Freigabe, und nur für angemeldete Mitglieder. Ihr Name und Ihre E-Mail-Adresse werden nicht angezeigt.</p>
+  <p class="muted small">Erfahrungsberichte sind keine Bewertung. Bitte schreiben Sie sachlich und nennen Sie keine
+     Namen oder Kontaktdaten anderer Personen.</p>
+  <form method="post" enctype="multipart/form-data" novalidate class="work-form">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="notice" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div>
+      {{ form.text.label_tag }}
+      {{ form.text }}
+      <p class="muted small"><span data-char-count aria-live="polite">0</span> von {{ max_chars }} Zeichen · {{ form.text.help_text }}</p>
+      {{ form.text.errors }}
+    </div>
+
+    <h2>Fotos (freiwillig, höchstens drei)</h2>
+    <aside class="copyright-note" role="note">
+      <strong>Unser Vorschlag:</strong> <strong>ein Foto mit einem Überblick</strong> (Weitsicht), das den Ort als
+      Ganzes zeigt, und <strong>zwei Fotos mit Details</strong>, die Ihren Erfahrungsbericht wiedergeben bzw. darin
+      beschriebene Dinge zeigen. Bitte keine erkennbaren Personen und keine Bilder aus dem Internet.
+    </aside>
+    {% for file_field, alt_field in slots %}
+    <fieldset class="report-photo">
+      <legend>{{ file_field.label }}</legend>
+      <p class="muted small">{{ file_field.help_text }}</p>
+      {{ file_field }}
+      {{ file_field.errors }}
+      <label for="{{ alt_field.id_for_label }}">{{ alt_field.label }}</label>
+      {{ alt_field }}
+      <p class="muted small">{{ alt_field.help_text }}</p>
+    </fieldset>
+    {% endfor %}
+
+    <div class="consent">
+      <label>{{ form.photo_consent }} {{ form.photo_consent.label }}</label>
+      {{ form.photo_consent.errors }}
+    </div>
+    <p><button type="submit">Erfahrungsbericht zur Prüfung einreichen</button></p>
+  </form>
+</article>
+{% endblock %}
+{% block scripts %}<script>
+(function () {
+  "use strict";
+  var area = document.querySelector("textarea[data-char-counter]");
+  var out = document.querySelector("[data-char-count]");
+  if (!area || !out) return;
+  function update() { out.textContent = String(area.value.replace(/\r\n/g, "\n").length); }
+  area.addEventListener("input", update);
+  update();
+})();
+</script>{% endblock %}

@@ -17,5 +17,7 @@ zweiter Schritt in der aktuellen Sitzung, aktuelle Rolle und ggf. aktuelle Objek
   Kontoloeschung loescht keine Objekte. `Provider.managed_by` getrennt.
 - Rollenvergabe/-entzug und Sperren: nur Administration, mit frischer Bestaetigung, protokolliert;
   beendet bestehende Sitzungen der betroffenen Person. Entzug wirkt ab der naechsten Anfrage.
+- Erfahrungsberichte: erfassen duerfen alle vollstaendig verifizierten Konten; freigeben, zurueckweisen,
+  zurueckziehen und korrigieren nur Redaktion/Administration (docs/ADR_ERFAHRUNGSBERICHTE.md).
 - Eigenfreigabe (Betreuer mit Redaktionsrolle) ist erlaubt, wird aber protokolliert (`self_publish`).
 - Interne Arbeit verbraucht kein Besucherkontingent; auf Besucherseiten gelten fuer alle Rollen die Mitgliedsregeln.

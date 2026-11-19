@@ -2,6 +2,7 @@
 {% block title %}{{ obj.title }} · Adresskarte{% endblock %}
 {% block content %}
 <article class="preview">
+  {% include "locations/_messages.html" %}
   <h1>{{ obj.title }}</h1>
   <p class="muted place">{{ obj.place }}</p>
   {% if obj.categories %}<ul class="tags" aria-label="Kategorien">{% for c in obj.categories %}<li class="tag">{{ c.label }}</li>{% endfor %}</ul>{% endif %}
@@ -29,6 +30,7 @@
         <button type="submit">Details und Kontakte anzeigen</button>
       </form>
     </aside>
+    <p><a href="{% url 'locations:report_create' obj.id %}">Erfahrungsbericht zu diesem Ort schreiben</a></p>
   {% else %}
     <aside class="notice">
       <p>Weitere Angaben und Bilder sind nur für angemeldete Mitglieder

@@ -8,6 +8,8 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Length
+from django.db.models.lookups import LessThanOrEqual
 
 
 def normalize_email_address(value: str) -> str:
@@ -564,6 +566,7 @@ class LocationNotice(models.Model):
         WITHDRAWN = "withdrawn", "Veroeffentlichung durch die Redaktion zurueckgezogen"
         PHOTO_REMOVED = "photo_removed", "Veroeffentlichtes Foto durch die Redaktion entfernt"
         EDITOR_EDIT = "editor_edit", "Arbeitsfassung durch die Redaktion bearbeitet"
+        REPORT_PUBLISHED = "report_published", "Neuer Erfahrungsbericht zum Objekt veroeffentlicht"
 
     class MailStatus(models.TextChoices):
         NONE = "none", "keine Mail vorgesehen"
@@ -590,3 +593,90 @@ class LocationNotice(models.Model):
         verbose_name = "Mitteilung an Betreuung"
         verbose_name_plural = "Mitteilungen an Betreuung"
         ordering = ["-created_at", "-id"]
+
+
+# ---------------------------------------------------------------------------
+# Erfahrungsberichte von Mitgliedern (docs/ADR_ERFAHRUNGSBERICHTE.md)
+# Bewusst eigenstaendig: kuenftige Bewertungen erhalten eigene Modelle, keine gemeinsame Basistabelle.
+# ---------------------------------------------------------------------------
+
+EXPERIENCE_REPORT_MAX_CHARS = 2000
+
+
+class ExperienceReport(models.Model):
+    """Erfahrungsbericht eines Mitglieds (oder der Redaktion) zu einem Objekt.
+
+    Sichtbar erst nach Freigabe durch die Redaktion, und nur fuer Mitglieder mit gueltiger
+    Freigabebuchung des (aktiv veroeffentlichten) Objekts. Keine Autorenangaben in Ausgaben.
+    """
+
+    class State(models.TextChoices):
+        SUBMITTED = "submitted", "Zur Pruefung eingereicht"
+        PUBLISHED = "published", "Veroeffentlicht"
+        REJECTED = "rejected", "Zurueckgewiesen"
+        WITHDRAWN = "withdrawn", "Zurueckgezogen"
+
+    class MailStatus(models.TextChoices):
+        NONE = "none", "keine Mail vorgesehen"
+        SENT = "sent", "Mail gesendet"
+        PARTIAL = "partial", "Mail nur teilweise zugestellt"
+        FAILED = "failed", "Mail nicht zugestellt"
+        BUDGET = "budget", "Mail nicht gesendet (Budget)"
+        NO_RECIPIENT = "no_recipient", "keine bestaetigte Empfaengeradresse"
+
+    public_id = models.CharField(max_length=16, unique=True, default=new_public_id, editable=False)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="experience_reports")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    text = models.TextField("Erfahrungsbericht", max_length=EXPERIENCE_REPORT_MAX_CHARS)
+    state = models.CharField(max_length=12, choices=State.choices, default=State.SUBMITTED)
+    # Ausdrueckliche Publikationsberechtigung fuer die Fotos (nur diese Webseite, keine fremden Bildrechte).
+    photo_consent_at = models.DateTimeField("Publikationsberechtigung Fotos erteilt am", null=True, blank=True)
+    review_feedback = models.TextField("Begruendung der Redaktion (intern)", blank=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                    related_name="+")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    editor_mail_status = models.CharField("Mail an Redaktion", max_length=12, choices=MailStatus.choices,
+                                          default=MailStatus.NONE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Erfahrungsbericht"
+        verbose_name_plural = "Erfahrungsberichte"
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["location", "state", "published_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=LessThanOrEqual(Length("text"), EXPERIENCE_REPORT_MAX_CHARS),
+                name="report_text_max_length",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Erfahrungsbericht {self.public_id} zu {self.location}"
+
+
+class ExperienceReportPhoto(models.Model):
+    """Foto zu einem Erfahrungsbericht (max. 3: eine Uebersicht, zwei Details). Dateien privat."""
+
+    class Kind(models.TextChoices):
+        OVERVIEW = "overview", "Ueberblick (Weitsicht)"
+        DETAIL = "detail", "Detail"
+
+    public_id = models.CharField(max_length=16, unique=True, default=new_public_id, editable=False)
+    report = models.ForeignKey(ExperienceReport, on_delete=models.CASCADE, related_name="photos")
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    storage_key = models.CharField(max_length=64, unique=True)
+    alt_text = models.CharField("Bildbeschreibung", max_length=200, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    rights_confirmed_at = models.DateTimeField(editable=False)
+    is_removed = models.BooleanField(default=False)  # durch die Redaktion entfernt (Dateien geloescht)
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Foto zum Erfahrungsbericht"
+        verbose_name_plural = "Fotos zu Erfahrungsberichten"
+        ordering = ["sort_order", "id"]

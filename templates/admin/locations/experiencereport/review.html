@@ -1,0 +1,54 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Objekt: <a href="{% url 'admin:locations_location_change' report.location.pk %}">{{ report.location }}</a>
+  {% if not location_published %} · <strong>Objekt derzeit nicht veröffentlicht</strong> (Bericht bleibt bis dahin unsichtbar){% endif %}</p>
+<p>Status: <strong>{{ report.get_state_display }}</strong> · Eingereicht {{ report.created_at|date:"d.m.Y H:i" }}
+  {% if author_is_editor %}· durch die Redaktion erfasst{% else %}· durch ein Mitglied erfasst{% endif %}
+  · Hinweis an Redaktion: {{ report.get_editor_mail_status_display }}
+  {% if report.reviewed_at %}· Letzter Entscheid {{ report.reviewed_at|date:"d.m.Y H:i" }}{% endif %}</p>
+{% if report.photo_consent_at %}<p class="help">Publikationsberechtigung für die Fotos (nur diese Webseite, keine fremden
+  Bildrechte) erteilt am {{ report.photo_consent_at|date:"d.m.Y H:i" }}.</p>{% endif %}
+<p class="help">Freigegebene Berichte sehen nur Mitglieder, die das Objekt geöffnet haben (gültige Freigabebuchung);
+  ohne Autorenangaben. Bei der ersten Freigabe wird die Objektbetreuung im Portal und per Mail informiert.</p>
+{% if report.state == 'rejected' and report.review_feedback %}<p>Begründung (intern): {{ report.review_feedback }}</p>{% endif %}
+
+<form method="post">{% csrf_token %}
+  <fieldset class="module aligned">
+    <div class="form-row">
+      <label for="report-text">Text (max. {{ max_chars }} Zeichen; Korrekturen werden protokolliert)</label>
+      <textarea id="report-text" name="text" rows="12" cols="80" maxlength="{{ max_chars }}" {% if report.state == 'rejected' %}readonly{% endif %}>{{ report.text }}</textarea>
+    </div>
+  </fieldset>
+  <h2>Fotos</h2>
+  <table>
+    <thead><tr><th>Bild</th><th>Art</th><th>Bildbeschreibung</th><th>Status</th><th>Entfernen</th></tr></thead>
+    <tbody>{% for p in photos %}
+      <tr><td>{% if p.is_removed %}–{% else %}<a href="{% url 'locations:report_photo' p.public_id 'detail' %}" target="_blank" rel="noopener"><img src="{% url 'locations:report_photo' p.public_id 'vorschau' %}" width="160" alt=""></a>{% endif %}</td>
+        <td>{{ p.get_kind_display }}</td><td>{{ p.alt_text|default:"–" }}</td>
+        <td>{% if p.is_removed %}entfernt{% else %}vorhanden{% endif %}</td>
+        <td>{% if not p.is_removed %}<input type="checkbox" name="remove_photo" value="{{ p.public_id }}" aria-label="Foto entfernen">{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="5">Keine Fotos.</td></tr>{% endfor %}</tbody>
+  </table>
+  {% if report.state != 'rejected' %}
+  <div class="submit-row">
+    <button type="submit" name="action" value="save">Änderungen speichern</button>
+    {% if report.state == 'submitted' or report.state == 'withdrawn' %}
+      <button type="submit" name="action" value="publish" class="default">Speichern und freigeben</button>
+    {% endif %}
+    {% if report.state == 'published' %}
+      <button type="submit" name="action" value="withdraw">Veröffentlichung zurückziehen</button>
+    {% endif %}
+  </div>
+  {% endif %}
+</form>
+{% if report.state == 'submitted' %}
+<h2>Zurückweisen</h2>
+<form method="post">{% csrf_token %}
+  <input type="hidden" name="action" value="reject">
+  <p><label for="feedback">Begründung (intern, wird nicht versendet)</label><br>
+    <textarea id="feedback" name="feedback" rows="3" cols="80" maxlength="2000"></textarea></p>
+  <p><button type="submit">Zurückweisen (Fotos werden gelöscht)</button></p>
+</form>
+{% endif %}
+<p><a href="{% url 'admin:locations_experiencereport_changelist' %}">Zur Liste der Erfahrungsberichte</a></p>
+{% endblock %}

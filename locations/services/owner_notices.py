@@ -26,6 +26,7 @@ MAIL_KINDS = {
     LocationNotice.Kind.REJECTED,
     LocationNotice.Kind.WITHDRAWN,
     LocationNotice.Kind.PHOTO_REMOVED,
+    LocationNotice.Kind.REPORT_PUBLISHED,
 }
 
 
