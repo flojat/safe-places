@@ -13,14 +13,34 @@ from .geo import CoordinateError, to_coordinate, validate_swiss_point
 from . import categories
 from .models import EXPERIENCE_REPORT_MAX_CHARS, Location, Photo, Provider
 
+# Reihenfolge = Anzeige: Freigabe-Schalter stehen direkt beim zugehoerigen Textfeld.
 OWNER_FIELDS = [
-    "title", "categories", "preview_text", "long_description", "details", "place_text",
-    "exact_address", "exact_lat", "exact_lon", "member_exact_location_released",
+    "title", "categories", "preview_text", "short_description",
+    "long_description", "guest_long_description_released",
+    "details", "guest_details_released",
+    "place_text", "exact_address", "exact_lat", "exact_lon", "member_exact_location_released",
     "preview_lat", "preview_lon",
     "contact_name", "contact_organisation", "contact_email", "contact_phone", "contact_website",
-    "contacts_released", "guest_long_description_released", "guest_details_released", "guest_contacts_released",
+    "contacts_released", "guest_contacts_released",
     "provider", "internal_notes",
 ]
+
+# Freigabe-Schalter: Beschriftung und Darstellung direkt unter dem zugehoerigen Feld.
+RELEASE_LABELS = {
+    "guest_long_description_released": "Langbeschreibung auch für Besucher (Gäste) sichtbar machen",
+    "guest_details_released": "Detailangaben auch für Besucher (Gäste) sichtbar machen",
+    "contacts_released": "Kontaktangaben für Mitglieder freigeben",
+    "guest_contacts_released": "Kontaktangaben auch für Besucher (Gäste) sichtbar machen",
+    "member_exact_location_released": "Genaue Lage für Mitglieder freigeben",
+}
+RELEASE_TEMPLATE = "locations/forms/release_checkbox.html"
+
+
+def apply_release_labels(form) -> None:
+    for name, label in RELEASE_LABELS.items():
+        if name in form.fields:
+            form.fields[name].label = label
+            form.fields[name].template_name = RELEASE_TEMPLATE
 
 
 def categories_field() -> forms.MultipleChoiceField:
@@ -32,7 +52,7 @@ def categories_field() -> forms.MultipleChoiceField:
     )
 
 
-GUEST_RELEASE_HELP = "Standard: aus. Wirksam erst mit der naechsten Freigabe durch die Redaktion."
+GUEST_RELEASE_HELP = "Standard: aus. Wirksam erst mit der nächsten Freigabe durch die Redaktion."
 
 
 def validate_guest_releases(form, data) -> None:
@@ -51,12 +71,14 @@ class LocationWorkForm(forms.ModelForm):
         fields = OWNER_FIELDS
         labels = {"internal_notes": "Eigene interne Notizen (nie veroeffentlicht)"}
         help_texts = {f: GUEST_RELEASE_HELP for f in (
-            "guest_long_description_released", "guest_details_released", "guest_contacts_released")}
+            "guest_long_description_released", "guest_details_released", "guest_contacts_released",
+            "member_exact_location_released", "contacts_released")}
         widgets = {
             "long_description": forms.Textarea(attrs={"rows": 6}),
             "details": forms.Textarea(attrs={"rows": 3}),
             "internal_notes": forms.Textarea(attrs={"rows": 2}),
             "preview_text": forms.Textarea(attrs={"rows": 2}),
+            "short_description": forms.Textarea(attrs={"rows": 4}),
         }
 
     def __init__(self, *args, user, **kwargs):
@@ -66,6 +88,7 @@ class LocationWorkForm(forms.ModelForm):
         self.fields["provider"].required = False
         for name in ("exact_lat", "exact_lon", "preview_lat", "preview_lon"):
             self.fields[name].widget = forms.TextInput(attrs={"inputmode": "decimal"})
+        apply_release_labels(self)
 
     def _pair(self, lat_field: str, lon_field: str, swiss: bool) -> None:
         lat, lon = self.cleaned_data.get(lat_field), self.cleaned_data.get(lon_field)

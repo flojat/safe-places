@@ -8,6 +8,7 @@
   {% if obj.categories %}<ul class="tags" aria-label="Kategorien">{% for c in obj.categories %}<li class="tag">{{ c.label }}</li>{% endfor %}</ul>{% endif %}
   {% include "locations/_gallery.html" with photos=obj.gallery %}
   <p>{{ obj.preview_text }}</p>
+  {% if obj.short_description %}<p class="prewrap short-description">{{ obj.short_description }}</p>{% endif %}
   {% if obj.long_description or obj.details %}
   <section>
     <h2>Beschreibung</h2>

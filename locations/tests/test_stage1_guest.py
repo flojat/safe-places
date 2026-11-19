@@ -165,7 +165,7 @@ class ProjectionTests(TestCase):
         pub = publish_now(make_location())
         self.assertEqual(
             set(projections.guest_projection(pub)),
-            {"id", "title", "categories", "preview_text", "place", "lat", "lon"},
+            {"id", "title", "categories", "preview_text", "short_description", "place", "lat", "lon"},
         )
         self.assertEqual(set(projections.guest_point(pub)), {"id", "title", "categories", "lat", "lon"})
 

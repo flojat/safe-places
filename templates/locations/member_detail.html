@@ -10,6 +10,7 @@
   <p class="muted place">{{ obj.place }}</p>
   {% if obj.categories %}<ul class="tags" aria-label="Kategorien">{% for c in obj.categories %}<li class="tag">{{ c.label }}</li>{% endfor %}</ul>{% endif %}
   <p>{{ obj.preview_text }}</p>
+  {% if obj.short_description %}<p class="prewrap short-description">{{ obj.short_description }}</p>{% endif %}
   <section>
     <h2>Beschreibung</h2>
     <p class="prewrap">{{ obj.long_description }}</p>

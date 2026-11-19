@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load field_help %}
 {% block content %}
 <section class="auth">
   <h1>Neues Objekt</h1>
@@ -6,3 +7,4 @@
   <form method="post" novalidate>{% csrf_token %}{{ form.as_div }}<button type="submit">Entwurf anlegen</button></form>
 </section>
 {% endblock %}
+{% block scripts %}{% field_help %}{% endblock %}

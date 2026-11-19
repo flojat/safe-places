@@ -20,8 +20,9 @@ except ImportError:  # pragma: no cover
     sync_playwright = None
 
 
-@unittest.skipIf(sync_playwright is None, "BLOCKIERT: Playwright nicht installiert")
-class GuestBrowserTests(StaticLiveServerTestCase):
+class BrowserTestBase(StaticLiveServerTestCase):
+    """Gemeinsamer Browserstart; fehlt Chromium, wird BLOCKIERT uebersprungen."""
+
     host = "127.0.0.1"
 
     @classmethod
@@ -42,6 +43,9 @@ class GuestBrowserTests(StaticLiveServerTestCase):
         cls.pw.stop()
         super().tearDownClass()
 
+
+@unittest.skipIf(sync_playwright is None, "BLOCKIERT: Playwright nicht installiert")
+class GuestBrowserTests(BrowserTestBase):
     def setUp(self):
         call_command("seed_demo", "--count", "100", "--no-photos", stdout=StringIO())
 
@@ -341,3 +345,77 @@ class MemberBrowserTests(StaticLiveServerTestCase):
         self.assertTrue(any("/map/tiles/" in u for u in requests))
         if shots:
             page.screenshot(path=f"{shots}/member_detail.png", full_page=True)
+
+
+@unittest.skipIf(sync_playwright is None, "BLOCKIERT: Playwright nicht installiert")
+class FieldHelpBrowserTests(BrowserTestBase):
+    """"i"-Hilfe im Betreuerportal: Knopf neben dem Feldnamen, Overlay, Esc schliesst, Fokus zurueck."""
+
+    def test_help_overlay_opens_next_to_field_and_closes(self):
+        from locations.roles import OBJECT_MANAGER
+
+        from .runner import ensure_default_field_help
+        from .test_stage1_guest import make_location
+        from .test_stage4_work import verified
+
+        ensure_default_field_help()
+        client, owner = verified("hilfe@example.org", groups=[OBJECT_MANAGER])
+        loc = make_location(managed_by=owner)
+        ctx = self.browser.new_context(viewport={"width": 1280, "height": 900})
+        self.addCleanup(ctx.close)
+        host = urlparse(self.live_server_url).hostname
+        ctx.add_cookies([{"name": name, "value": morsel.value, "domain": host, "path": "/"}
+                         for name, morsel in client.cookies.items()])
+        page = ctx.new_page()
+        page.goto(f"{self.live_server_url}/meine-objekte/{loc.public_id}/")
+        buttons = page.locator(".field-help-btn")
+        self.assertEqual(buttons.count(), 5)
+        btn = page.locator('.field-help-row:has(label[for="id_short_description"]) .field-help-btn')
+        self.assertTrue(btn.is_visible())
+        label_box = page.locator('label[for="id_short_description"]').bounding_box()
+        btn_box = btn.bounding_box()
+        # gleiche Zeile, direkt rechts neben dem Feldnamen
+        self.assertLess(abs((label_box["y"] + label_box["height"] / 2) - (btn_box["y"] + btn_box["height"] / 2)), 6)
+        self.assertLess(btn_box["x"] - (label_box["x"] + label_box["width"]), 20)
+        btn.click()
+        dialog = page.locator("dialog.field-help-dialog")
+        dialog.wait_for(state="visible")
+        self.assertIn("Kurzbeschreibung", dialog.inner_text())
+        self.assertIn("Vorschautext", dialog.inner_text())
+        shot = os.environ.get("FIELD_HELP_SCREENSHOT")
+        if shot:
+            page.screenshot(path=shot)
+        page.keyboard.press("Escape")
+        dialog.wait_for(state="hidden")
+        if shot:
+            page.locator("#id_details").scroll_into_view_if_needed()
+            page.screenshot(path=shot.replace(".png", "-toggles.png"))
+        dialog.wait_for(state="hidden")
+        self.assertTrue(page.evaluate("document.activeElement.classList.contains('field-help-btn')"))
+
+    def test_help_buttons_in_admin_form(self):
+        from locations.roles import EDITOR
+
+        from .runner import ensure_default_field_help
+        from .test_stage1_guest import make_location
+        from .test_stage4_work import verified
+
+        ensure_default_field_help()
+        client, _ = verified("hilfe-red@example.org", groups=[EDITOR], staff=True)
+        loc = make_location()
+        ctx = self.browser.new_context(viewport={"width": 1280, "height": 900})
+        self.addCleanup(ctx.close)
+        host = urlparse(self.live_server_url).hostname
+        ctx.add_cookies([{"name": name, "value": morsel.value, "domain": host, "path": "/"}
+                         for name, morsel in client.cookies.items()])
+        page = ctx.new_page()
+        page.goto(f"{self.live_server_url}/verwaltung/locations/location/{loc.pk}/change/")
+        self.assertEqual(page.locator(".field-help-btn").count(), 5)
+        label_box = page.locator('label[for="id_long_description"]').bounding_box()
+        btn_box = page.locator('.field-help-row:has(label[for="id_long_description"]) .field-help-btn').bounding_box()
+        self.assertLess(abs((label_box["y"] + label_box["height"] / 2) - (btn_box["y"] + btn_box["height"] / 2)), 6)
+        page.locator('.field-help-row:has(label[for="id_long_description"]) .field-help-btn').click()
+        page.locator("dialog.field-help-dialog").wait_for(state="visible")
+        shot = os.environ.get("FIELD_HELP_SCREENSHOT")
+        if shot:
+            page.screenshot(path=shot.replace(".png", "-admin.png"))

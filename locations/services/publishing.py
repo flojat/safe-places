@@ -83,7 +83,7 @@ def snapshot_values(loc: Location) -> tuple[dict, list]:
     )
     values = {
         "title": loc.title, "categories": normalize_categories(loc.categories), "preview_text": loc.preview_text,
-        "place_text": loc.place_text, "preview_lat": p_lat, "preview_lon": p_lon,
+        "short_description": loc.short_description, "place_text": loc.place_text, "preview_lat": p_lat, "preview_lon": p_lon,
         "long_description": loc.long_description, "details": loc.details,
         "member_address": member_address, "member_lat": member_lat, "member_lon": member_lon,
         **contact, "is_demo": loc.is_demo,
@@ -100,6 +100,7 @@ def snapshot_values(loc: Location) -> tuple[dict, list]:
 # Bereiche fuer Mitteilungen an die Betreuung (nur Namen, nie Inhalte).
 SECTIONS = (
     ("Vorschau (Titel, Kategorie, Text, Ort)", ("title", "categories", "preview_text", "place_text")),
+    ("Kurzbeschreibung", ("short_description",)),
     ("Vorschaulage", ("preview_lat", "preview_lon")),
     ("Beschreibung und Details", ("long_description", "details")),
     ("Genaue Lage fuer Mitglieder", ("member_address", "member_lat", "member_lon")),

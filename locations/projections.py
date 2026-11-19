@@ -13,7 +13,7 @@ from . import categories as category_store
 from .models import Photo, PublishedLocation, PublishedPhoto
 
 # GAST: Vorschau. Keine Langbeschreibung, Kontakte, genaue Lage, interne Felder.
-GUEST_FIELDS = ("public_id", "title", "categories", "preview_text", "place_text", "preview_lat", "preview_lon",
+GUEST_FIELDS = ("public_id", "title", "categories", "preview_text", "short_description", "place_text", "preview_lat", "preview_lon",
                 "guest_long_description_released", "guest_details_released", "guest_contacts_released")
 
 # Einzeln fuer Besucher freigebbar (Schalter im freigegebenen Stand, Standard aus).
@@ -74,7 +74,8 @@ def guest_search(qs: QuerySet, text: str) -> QuerySet:
     """Suche ausschliesslich in freigegebenen Gastfeldern."""
     if not text:
         return qs
-    cond = Q(title__icontains=text) | Q(preview_text__icontains=text) | Q(place_text__icontains=text)
+    cond = (Q(title__icontains=text) | Q(preview_text__icontains=text) | Q(short_description__icontains=text)
+            | Q(place_text__icontains=text))
     for value, cat in category_store.lookup().items():
         if text.lower() in cat.label.lower():
             cond |= Q(categories__contains=[value])
@@ -137,6 +138,7 @@ def guest_projection(pub: PublishedLocation, with_thumb: bool = False, with_rele
         "title": pub.title,
         "categories": category_items(pub.categories, category_table),
         "preview_text": pub.preview_text,
+        "short_description": pub.short_description,
         "place": pub.place_text,
         "lat": float(pub.preview_lat),
         "lon": float(pub.preview_lon),

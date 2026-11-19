@@ -164,6 +164,41 @@ def normalize_categories(values) -> list[str]:
     return list(Category.objects.filter(is_active=True, slug__in=chosen).values_list("slug", flat=True))
 
 
+SHORT_DESCRIPTION_MAX = 600
+
+
+class FieldHelp(models.Model):
+    """Hilfetext zu einem Eingabefeld der Objekte; gepflegt durch die Administration.
+
+    Angezeigt als "i"-Overlay neben dem Feld fuer angemeldete Konten (nie fuer Gaeste).
+    Der Satz an Feldern ist fest (FIELDS); leere Texte blenden das Symbol aus.
+    """
+
+    FIELDS = [
+        ("title", "Titel"),
+        ("preview_text", "Vorschautext"),
+        ("short_description", "Kurzbeschreibung"),
+        ("long_description", "Langbeschreibung"),
+        ("details", "Detailangaben"),
+    ]
+
+    field = models.CharField("Feld", max_length=40, choices=FIELDS, unique=True)
+    text = models.TextField("Hilfetext", max_length=3000, blank=True,
+                            help_text="Wofür das Feld dient und welcher Inhalt hineingehört. Reiner Text; "
+                                      "Leerzeilen trennen Absätze. Leer = kein Hilfesymbol.")
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name="+", editable=False)
+
+    class Meta:
+        verbose_name = "Hilfetext Objektfeld"
+        verbose_name_plural = "Hilfetexte Objektfelder"
+        ordering = ["id"]
+
+    def __str__(self) -> str:
+        return self.get_field_display()
+
+
 class Provider(models.Model):
     """Anbieter: private Stammdaten getrennt von freigabefaehigen Kontaktfeldern."""
 
@@ -215,6 +250,8 @@ class Location(models.Model):
     title = models.CharField("Titel", max_length=160, blank=True)
     categories = models.JSONField("Kategorien", default=list, blank=True)
     preview_text = models.CharField("Vorschautext", max_length=400, blank=True)
+    short_description = models.CharField("Kurzbeschreibung (auch Gäste)", max_length=SHORT_DESCRIPTION_MAX,
+                                         blank=True)
     long_description = models.TextField("Langbeschreibung (Mitglieder)", blank=True)
     details = models.TextField("Detailangaben (Mitglieder)", blank=True)
 
@@ -301,6 +338,7 @@ class PublishedLocation(models.Model):
     title = models.CharField(max_length=160)
     categories = models.JSONField(default=list)
     preview_text = models.CharField(max_length=400)
+    short_description = models.CharField(max_length=SHORT_DESCRIPTION_MAX, blank=True, default="")
     place_text = models.CharField(max_length=120)
     preview_lat = models.DecimalField(max_digits=9, decimal_places=6)
     preview_lon = models.DecimalField(max_digits=9, decimal_places=6)

@@ -4,7 +4,7 @@ Drei Projektionen (`locations/projections.py`); nie wird ein vollstaendiges Mode
 
 | Stufe | Inhalte | Quelle |
 |---|---|---|
-| Gast | ID, Titel, Kategorie, Vorschautext, Ort/Region, grobe Vorschaulage, optional Gastvorschaubild (400 px) | `PublishedLocation` (aktiv) |
+| Gast | ID, Titel, Kategorie, Vorschautext, Kurzbeschreibung, Ort/Region, grobe Vorschaulage, optional Gastvorschaubild (400 px) | `PublishedLocation` (aktiv) |
 | Mitglied | zusaetzlich Langbeschreibung, Details, freigegebene Kontakte, freigegebene genaue Lage/Adresse, Mitgliedsfotos | `PublishedLocation` + gueltige Buchung |
 | Verwaltung | Arbeitsfassung, interne Notizen, Entwurfsfotos (rollen-/zuordnungsabhaengig) | `Location` |
 

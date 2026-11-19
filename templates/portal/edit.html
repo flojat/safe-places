@@ -90,4 +90,5 @@
 {% block scripts %}{% load static %}<script src="{% static 'js/geocode.js' %}"></script>
 <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script src="{% static 'js/basemaps.js' %}"></script>
-<script src="{% static 'js/location_picker.js' %}"></script>{% endblock %}
+<script src="{% static 'js/location_picker.js' %}"></script>
+{% load field_help %}{% field_help %}{% endblock %}

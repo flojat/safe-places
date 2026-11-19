@@ -95,6 +95,10 @@ class Command(BaseCommand):
                     title=f"Demo-{label} {region} {n:03d}",
                     categories=[category, *extra],
                     preview_text=f"Synthetischer Demo-Eintrag ({label}) in der Region {region}. Kein reales Angebot.",
+                    short_description=(
+                        f"Kurzbeschreibung (Demo): {label} mit erfundenem Angebot in {region}. "
+                        "Sichtbar für alle Besucher."
+                    ),
                     long_description=(
                         f"{MEMBER_MARKER}{n:03d}: Ausführliche synthetische Beschreibung nur für "
                         f"vollständig angemeldete Mitglieder. Öffnungszeiten, Zugang und Ablauf sind erfunden."

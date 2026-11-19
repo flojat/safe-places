@@ -149,3 +149,11 @@ a.button { display: inline-block; padding: .45rem .9rem; background: var(--accen
 .report-photo { border: 1px solid var(--muted); border-radius: 6px; margin: 0 0 .75rem; padding: .5rem .75rem; }
 .report-photo input[type="text"] { width: 100%; box-sizing: border-box; }
 .consent label { display: block; }
+
+/* Freigabe-Schalter direkt unter dem zugehoerigen Textfeld */
+.work-form > div:has(> .release-toggle) { margin-top: -.45rem; }
+.release-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .75rem;
+  background: var(--accent-bg); border-left: 3px solid var(--accent); padding: .35rem .6rem; border-radius: 0 0 4px 4px; }
+.release-toggle label { display: inline-flex; align-items: center; gap: .45rem; font-weight: 600; cursor: pointer; }
+.release-toggle input[type=checkbox] { margin: 0; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); }
+.release-toggle .helptext { color: var(--muted); font-size: .85rem; }

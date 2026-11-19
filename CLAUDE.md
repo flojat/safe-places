@@ -44,6 +44,9 @@ Playwright-Browser liegen projektlokal: `PLAYWRIGHT_BROWSERS_PATH=$PWD/.playwrig
 - `locations/services/experience_reports.py`: Erfahrungsberichte (submit/publish/reject/withdraw, Mail an
   Redaktion, Fotozugriff); Ansicht `/objekt/<id>/erfahrungsbericht/`, Pruefung in der Verwaltung. Kuenftige
   Bewertungen strikt getrennt (eigene Modelle/Dienst), siehe `docs/ADR_ERFAHRUNGSBERICHTE.md`.
+- Objekttexte: Titel, Vorschautext, Kurzbeschreibung (Gastfeld, max. 600), Langbeschreibung, Details.
+  Hilfetexte dazu im Model `FieldHelp` (nur Administration pflegt), Ausgabe per `{% field_help %}`
+  (`templatetags/field_help.py`, `static/js/field_help.js`) nur fuer verifizierte Konten.
 - `locations/views.py`: Gastseite, `/api/punkte`, `/api/liste`, `/objekt/<id>/`, `/map/tiles/...`.
 - `locations/auth_flows.py`: Registrierung, E-Mail-Verifikationstoken, E-Mail-Challenges, Generationswechsel.
 - `locations/account_views.py`: abgeleitete two_factor-Login/Setup-Views mit Schutzmixin, Konto, Reset.

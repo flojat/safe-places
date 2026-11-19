@@ -31,6 +31,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 5 | swisstopo-Gateway mit Cache/Generationen, globale Provider-Budgets und Slots, cacheUpdate-Pruefung, Adresssuche im Arbeitsbereich | umgesetzt (gemockt getestet); echter Smoke-Test BLOCKIERT bis Freigabe; lokal weiterhin `MAP_TILE_SOURCE=local_test` |
 | 6 | Initialkonten (Provisionierung, Einladung, Aktivierung, Rollen nach zweitem Schritt), Installations-/Pruef-/Deploy-/Rollback-Routine, Hosting-Vorlagen | umgesetzt; echte Apache/WSGI- und SMTP-Pruefung BLOCKIERT (kein Hostingzugang) |
 | 7 | Zusatzfaktor/Faktorentfernung, Sicherheitsbenachrichtigungen, Admin-Wiederherstellung, Routenpruefung, Restore-Test, vollstaendige Dokumentation | umgesetzt |
+| 13 | Kurzbeschreibung (Gastfeld zwischen Vorschautext und Langbeschreibung, max. 600 Zeichen, im Snapshot, Suche, Vergleich) und Hilfetexte ("i"-Overlay) zu Titel/Vorschautext/Kurzbeschreibung/Langbeschreibung/Details, gepflegt durch Administration; Freigabe-Schalter (Besucher/Mitglieder) direkt beim zugehoerigen Feld | lokal umgesetzt und getestet (inkl. Browsertest Portal/Verwaltung); nicht deployt |
 | 12 | Erfahrungsberichte (Erweiterung Auftraggeber 2026-11-19, docs/ADR_ERFAHRUNGSBERICHTE.md): Erfassen durch Mitglieder/Redaktion, max. 2000 Zeichen, 3 Fotos mit Publikationsberechtigung, Mail an Redaktion, Freigabe nur Redaktion, Mitteilung an Betreuung, Sichtbarkeit nur Mitglieder mit Buchung | lokal umgesetzt und getestet; nicht deployt; Bewertungen nur vorgesehen (OFFEN) |
 
 ## Tatsaechlich ausgefuehrte Pruefungen
@@ -100,6 +101,7 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 2026-11-10 | Zielserver rc6: Backup, `deploy --apply --migrate --backup-confirmed` (0009-0012), `ensure_role_groups`, check --deploy ohne Hinweise (2 silenced), `check_tile_cache_update` beide Layer OK (SWISSIMAGE cacheUpdate real erreichbar), doctor WARN nur SMTP, Start 200 | BESTANDEN |
 | – | MX auf >= 2048-Bit-DH oder ECDHE aktualisieren lassen, danach `EMAIL_TLS_PROFILE=default` | OFFEN (externer MX-Betreiber) |
 
+| 2026-11-19 | Kurzbeschreibung + Hilfetexte: `test_stage13_short_description_help` (13), Browsertests Hilfe-Overlay Portal/Verwaltung (2), Layout Freigabe-Schalter Portal/Verwaltung (4), volle Suite 346 Tests | BESTANDEN |
 | 2026-11-19 | Erfahrungsberichte: `test_stage12_experience_reports` (21 Tests) und volle Suite (327 Tests), `makemigrations --check` | BESTANDEN (ein swisstopo-Test einmal fehlgeschlagen, einzeln 2x und im Wiederholungslauf bestanden: flakig, unabhaengig) |
 
 ## Entscheidungen

@@ -9,6 +9,7 @@
     <div class="preview-col"><h2>Gast</h2>
       <p><strong>{{ v.title }}</strong> · {{ v.place_text }}</p>
       <p>{{ v.preview_text }}</p>
+      {% if v.short_description %}<p class="prewrap">{{ v.short_description }}</p>{% endif %}
       <p class="muted">Vorschaupunkt: {{ v.preview_lat }}, {{ v.preview_lon }}</p>
       {% for p in guest_photos %}<img src="{% url 'locations:photo' p.public_id 'vorschau' %}" alt="{{ p.alt_text }}" width="120">{% endfor %}
     </div>

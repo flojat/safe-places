@@ -23,9 +23,9 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from . import reauth
-from .forms import PhotoUploadForm, categories_field, validate_guest_releases
+from .forms import RELEASE_LABELS, PhotoUploadForm, categories_field, validate_guest_releases
 from .models import (
-    AuditEvent, Category, ExperienceReport, ExperienceReportPhoto, Location, LocationNotice, Photo, Provider,
+    AuditEvent, Category, ExperienceReport, FieldHelp, ExperienceReportPhoto, Location, LocationNotice, Photo, Provider,
     PublishedLocation, PublishedPhoto,
 )
 from .permissions import can_administer, can_publish
@@ -37,6 +37,7 @@ User = get_user_model()
 
 COMPARE_FIELDS = [
     ("title", "Titel"), ("categories", "Kategorien"), ("preview_text", "Vorschautext"),
+    ("short_description", "Kurzbeschreibung"),
     ("place_text", "Ort/Region"), ("preview_lat", "Vorschau Breite"), ("preview_lon", "Vorschau Laenge"),
     ("long_description", "Langbeschreibung"), ("details", "Details"),
     ("member_address", "Mitglieder: Adresse"), ("member_lat", "Mitglieder: Breite"),
@@ -110,6 +111,7 @@ class LocationAdminForm(forms.ModelForm):
         model = Location
         exclude = ["review_state", "work_version", "submitted_at", "reviewed_at",
                    "created_by", "updated_by", "public_id"]
+        widgets = {"short_description": forms.Textarea(attrs={"rows": 4, "cols": 80})}
 
     def clean(self):
         data = super().clean()
@@ -132,6 +134,9 @@ class LocationAdminForm(forms.ModelForm):
             required=True, label="Zustaendige Betreuung",
             help_text="Pflicht. Fuer redaktionell erfasste Objekte den internen Standard-Betreuer waehlen.",
         )
+        for name, label in RELEASE_LABELS.items():
+            if name in self.fields:
+                self.fields[name].label = label
         if not self.instance.pk:
             default = default_object_manager()
             if default is not None:
@@ -175,6 +180,20 @@ class LocationAdmin(NoBulkDeleteMixin, admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("published", "managed_by")
+
+    # Freigabe-Schalter direkt unter dem jeweiligen Textfeld (wie im Betreuerportal).
+    RELEASE_AFTER = {
+        "guest_long_description_released": "long_description",
+        "guest_details_released": "details",
+        "guest_contacts_released": "contacts_released",
+    }
+
+    def get_fields(self, request, obj=None):
+        fields = [f for f in super().get_fields(request, obj) if f not in self.RELEASE_AFTER]
+        for name, after in self.RELEASE_AFTER.items():  # Reihenfolge: contacts_released vor guest_contacts
+            if after in fields:
+                fields.insert(fields.index(after) + 1, name)
+        return fields
 
     def save_model(self, request, obj, form, change):
         """Redaktionelle Bearbeitung = neue Arbeitsversion; veroeffentlichter Stand bleibt."""
@@ -497,6 +516,47 @@ class CategoryAdmin(NoBulkDeleteMixin, admin.ModelAdmin):
         AuditEvent.objects.create(actor=request.user, action="category_change" if change else "category_add",
                                   target_type="category", target_id=obj.slug[:32],
                                   detail=f"aktiv={obj.is_active}")
+
+
+@admin.register(FieldHelp)
+class FieldHelpAdmin(NoBulkDeleteMixin, admin.ModelAdmin):
+    """Hilfetexte zu Objektfeldern ("i"-Overlay): nur Administration, fester Feldsatz (kein Anlegen/Loeschen)."""
+
+    list_display = ["field_label", "excerpt", "updated_at", "updated_by"]
+    fields = ["field", "text"]
+    readonly_fields = ["field"]
+    actions = None
+
+    @admin.display(description="Feld")
+    def field_label(self, obj):
+        return obj.get_field_display()
+
+    @admin.display(description="Hilfetext")
+    def excerpt(self, obj):
+        return (obj.text[:90] + "...") if len(obj.text) > 90 else (obj.text or "– (kein Hilfesymbol)")
+
+    def has_module_permission(self, request):
+        return can_administer(request)
+
+    def has_view_permission(self, request, obj=None):
+        return can_administer(request)
+
+    def has_change_permission(self, request, obj=None):
+        return can_administer(request)
+
+    def has_add_permission(self, request):
+        return False
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "text":
+            kwargs["widget"] = forms.Textarea(attrs={"rows": 10, "cols": 80})
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_by = request.user
+        super().save_model(request, obj, form, change)
+        AuditEvent.objects.create(actor=request.user, action="field_help_change", target_type="field_help",
+                                  target_id=obj.field[:32], detail=f"zeichen={len(obj.text)}")
 
 
 @admin.register(PublishedLocation)

@@ -1,0 +1,6 @@
+{# Freigabe-Schalter direkt unter dem zugehoerigen Textfeld: Checkbox und Beschriftung in einer Zeile. #}
+<div class="release-toggle">
+  <label for="{{ field.auto_id }}">{{ field }} <span>{{ field.label }}</span></label>
+  {% if field.help_text %}<span class="helptext" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</span>{% endif %}
+  {{ field.errors }}
+</div>

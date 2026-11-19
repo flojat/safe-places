@@ -68,6 +68,7 @@ def editor_edit_sections(changed_fields, photos_changed: bool) -> list[str]:
     """Bereichsnamen fuer eine redaktionelle Bearbeitung der Arbeitsfassung (ohne interne Felder)."""
     groups = (
         ("Vorschau (Titel, Kategorie, Text, Ort)", {"title", "categories", "preview_text", "place_text"}),
+        ("Kurzbeschreibung", {"short_description"}),
         ("Vorschaulage", {"preview_lat", "preview_lon"}),
         ("Beschreibung und Details", {"long_description", "details"}),
         ("Genaue Lage", {"exact_address", "exact_lat", "exact_lon", "member_exact_location_released"}),
