@@ -1,6 +1,6 @@
 # Implementierungsstatus – Adresskarte Prototyp V0.5
 
-Stand: 2026-11-09. Legende: BESTANDEN = ausgefuehrt und erfolgreich · FEHLGESCHLAGEN ·
+Stand: 2026-11-24. Legende: BESTANDEN = ausgefuehrt und erfolgreich · FEHLGESCHLAGEN ·
 BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 
 ## Umgebung (lokal, geprueft)
@@ -31,8 +31,8 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | 5 | swisstopo-Gateway mit Cache/Generationen, globale Provider-Budgets und Slots, cacheUpdate-Pruefung, Adresssuche im Arbeitsbereich | umgesetzt (gemockt getestet); echter Smoke-Test BLOCKIERT bis Freigabe; lokal weiterhin `MAP_TILE_SOURCE=local_test` |
 | 6 | Initialkonten (Provisionierung, Einladung, Aktivierung, Rollen nach zweitem Schritt), Installations-/Pruef-/Deploy-/Rollback-Routine, Hosting-Vorlagen | umgesetzt; echte Apache/WSGI- und SMTP-Pruefung BLOCKIERT (kein Hostingzugang) |
 | 7 | Zusatzfaktor/Faktorentfernung, Sicherheitsbenachrichtigungen, Admin-Wiederherstellung, Routenpruefung, Restore-Test, vollstaendige Dokumentation | umgesetzt |
-| 13 | Kurzbeschreibung (Gastfeld zwischen Vorschautext und Langbeschreibung, max. 600 Zeichen, im Snapshot, Suche, Vergleich) und Hilfetexte ("i"-Overlay) zu Titel/Vorschautext/Kurzbeschreibung/Langbeschreibung/Details, gepflegt durch Administration; Freigabe-Schalter (Besucher/Mitglieder) direkt beim zugehoerigen Feld | lokal umgesetzt und getestet (inkl. Browsertest Portal/Verwaltung); nicht deployt |
-| 12 | Erfahrungsberichte (Erweiterung Auftraggeber 2026-11-19, docs/ADR_ERFAHRUNGSBERICHTE.md): Erfassen durch Mitglieder/Redaktion, max. 2000 Zeichen, 3 Fotos mit Publikationsberechtigung, Mail an Redaktion, Freigabe nur Redaktion, Mitteilung an Betreuung, Sichtbarkeit nur Mitglieder mit Buchung | lokal umgesetzt und getestet; nicht deployt; Bewertungen nur vorgesehen (OFFEN) |
+| 13 | Kurzbeschreibung (Gastfeld zwischen Vorschautext und Langbeschreibung, max. 600 Zeichen, im Snapshot, Suche, Vergleich) und Hilfetexte ("i"-Overlay) zu Titel/Vorschautext/Kurzbeschreibung/Langbeschreibung/Details, gepflegt durch Administration; Freigabe-Schalter (Besucher/Mitglieder) direkt beim zugehoerigen Feld | lokal umgesetzt und getestet (inkl. Browsertest Portal/Verwaltung); produktiv mit rc8 (2026-11-24) |
+| 12 | Erfahrungsberichte (Erweiterung Auftraggeber 2026-11-19, docs/ADR_ERFAHRUNGSBERICHTE.md): Erfassen durch Mitglieder/Redaktion, max. 2000 Zeichen, 3 Fotos mit Publikationsberechtigung, Mail an Redaktion, Freigabe nur Redaktion, Mitteilung an Betreuung, Sichtbarkeit nur Mitglieder mit Buchung | lokal umgesetzt und getestet; produktiv mit rc8 (2026-11-24); Bewertungen nur vorgesehen (OFFEN) |
 
 ## Tatsaechlich ausgefuehrte Pruefungen
 
@@ -102,6 +102,9 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
 | – | MX auf >= 2048-Bit-DH oder ECDHE aktualisieren lassen, danach `EMAIL_TLS_PROFILE=default` | OFFEN (externer MX-Betreiber) |
 
 | 2026-11-19 | Kurzbeschreibung + Hilfetexte: `test_stage13_short_description_help` (13), Browsertests Hilfe-Overlay Portal/Verwaltung (2), Layout Freigabe-Schalter Portal/Verwaltung (4), volle Suite 346 Tests | BESTANDEN |
+| 2026-11-24 | rc8 vor Deploy lokal: `check`, `makemigrations --check`, volle Suite seriell 346 Tests | BESTANDEN |
+| 2026-11-24 | dito mit `--parallel 2`: Runner-Abbruch "cannot pickle 'traceback' object" (verdeckt einen nur parallel fehlschlagenden Test) | OFFEN (untersuchen) |
+| 2026-11-24 | Zielserver rc8: ISPConfig `LimitRequestBody 34603008`; Backup DB (34 Tabellen, Dump vollstaendig) + private Medien mit SHA256SUMS in shared/backup/pre-rc8-*; `deploy --apply --migrate --backup-confirmed` (0013, 0014): EXPORT/VENDOR_HASH/PREPARE/MIGRATE/ACTIVATED PASS; Nachpruefung (Symlink, showmigrations, doctor, Start 200) laut Betreiber in Ordnung | BESTANDEN |
 | 2026-11-19 | Erfahrungsberichte: `test_stage12_experience_reports` (21 Tests) und volle Suite (327 Tests), `makemigrations --check` | BESTANDEN (ein swisstopo-Test einmal fehlgeschlagen, einzeln 2x und im Wiederholungslauf bestanden: flakig, unabhaengig) |
 
 ## Entscheidungen
@@ -180,6 +183,13 @@ BLOCKIERT · OFFEN = noch nicht umgesetzt/ausgefuehrt.
   Testkonto hat zusaetzlich nur Rechte auf `<testdb>_%` fuer parallele Klone.
 - Lokale Mail: Datei-Backend in `var/private_mail`; kein Console-Backend.
 
+
+## Stand Zielserver (2026-11-24)
+
+Aktives Release **v0.5.0-rc8** (Commit 026857f, Migrationen bis 0014), deployt 2026-11-24. Offen: Browserpruefung
+rc8 (Kurzbeschreibung/Hilfetexte/Freigabe-Schalter, Erfahrungsbericht mit 3 Fotos = Upload-Grenze) und aus rc6
+(Luftbild, Galerie, Kategorien-Admin, Punktwahl); Standard-Betreuer + `DEFAULT_OBJECT_MANAGER_EMAIL`; MX-Aktualisierung.
+Rueckwechsel auf rc6 nur ueber Backup (Schema neuer).
 
 ## Stand Inbetriebnahme Zielserver (2026-11-10, Feierabend)
 
